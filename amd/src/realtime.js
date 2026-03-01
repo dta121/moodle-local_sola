@@ -57,6 +57,8 @@ define([], function() {
     var rafId = null;
     /** @type {AnalyserNode|null} */
     var analyser = null;
+    /** @type {AudioBufferSourceNode|null} Currently playing audio source */
+    var currentSource = null;
 
     /**
      * Set state and notify callback.
@@ -152,8 +154,12 @@ define([], function() {
         source.connect(analyser);
         analyser.connect(audioCtx.destination);
 
+        currentSource = source;
         source.start();
         source.onended = function() {
+            if (currentSource === source) {
+                currentSource = null;
+            }
             if (rafId) {
                 cancelAnimationFrame(rafId);
                 rafId = null;
@@ -257,6 +263,23 @@ define([], function() {
                 break;
 
             case 'input_audio_buffer.speech_started':
+                // User started speaking — stop any playing audio immediately.
+                if (currentSource) {
+                    try { currentSource.stop(); } catch (e) { /**/ }
+                    currentSource = null;
+                }
+                audioChunks = [];
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
+                if (overlayRoot) {
+                    overlayRoot.style.removeProperty('--aica-voice-level');
+                }
+                // Tell server to cancel current response generation.
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({type: 'response.cancel'}));
+                }
                 setState('listening');
                 break;
 
@@ -364,6 +387,11 @@ define([], function() {
      * Disconnect from the Realtime API and clean up all resources.
      */
     var disconnect = function() {
+        // Stop any playing audio.
+        if (currentSource) {
+            try { currentSource.stop(); } catch (e) { /**/ }
+            currentSource = null;
+        }
         // Stop animation.
         if (rafId) {
             cancelAnimationFrame(rafId);

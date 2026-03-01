@@ -1571,6 +1571,12 @@ define([
             return;
         }
 
+        // Pending selections (only applied on Save).
+        let pendingLang = config.currentLang || null;
+        let pendingLangName = config.currentLang ? (config.langs[config.currentLang] || {}).name : 'English';
+        let pendingAvatarId = null;
+        let pendingAvatarUrl = config.currentAvatarUrl || null;
+
         const panel = document.createElement('div');
         panel.className = 'aica-settings-panel';
 
@@ -1617,8 +1623,12 @@ define([
             (!config.currentLang ? ' aica-settings-panel__lang-opt--active' : '');
         enOpt.textContent = 'English (default)';
         enOpt.addEventListener('click', function() {
-            callbacks.onLangSelect(null, 'English');
-            panel.remove();
+            pendingLang = null;
+            pendingLangName = 'English';
+            langList.querySelectorAll('.aica-settings-panel__lang-opt').forEach(function(b) {
+                b.classList.remove('aica-settings-panel__lang-opt--active');
+            });
+            enOpt.classList.add('aica-settings-panel__lang-opt--active');
         });
         langList.appendChild(enOpt);
 
@@ -1631,8 +1641,12 @@ define([
                 (config.currentLang === code ? ' aica-settings-panel__lang-opt--active' : '');
             opt.textContent = config.langs[code].name;
             opt.addEventListener('click', function() {
-                callbacks.onLangSelect(code, config.langs[code].name);
-                panel.remove();
+                pendingLang = code;
+                pendingLangName = config.langs[code].name;
+                langList.querySelectorAll('.aica-settings-panel__lang-opt').forEach(function(b) {
+                    b.classList.remove('aica-settings-panel__lang-opt--active');
+                });
+                opt.classList.add('aica-settings-panel__lang-opt--active');
             });
             langList.appendChild(opt);
         });
@@ -1665,8 +1679,8 @@ define([
                         b.classList.remove('aica-settings-panel__avatar-opt--selected');
                     });
                     btn.classList.add('aica-settings-panel__avatar-opt--selected');
-                    callbacks.onAvatarSelect(av.id, av.url);
-                    panel.remove();
+                    pendingAvatarId = av.id;
+                    pendingAvatarUrl = av.url;
                 });
                 grid.appendChild(btn);
             });
@@ -1690,6 +1704,28 @@ define([
         }
 
         panel.appendChild(content);
+
+        // --- Save button ---
+        const footer = document.createElement('div');
+        footer.className = 'aica-settings-panel__footer';
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'aica-settings-panel__save';
+        saveBtn.textContent = 'Save';
+        saveBtn.addEventListener('click', function() {
+            // Apply language if changed.
+            if (pendingLang !== (config.currentLang || null)) {
+                callbacks.onLangSelect(pendingLang, pendingLangName);
+            }
+            // Apply avatar if changed.
+            if (pendingAvatarId !== null && pendingAvatarUrl !== config.currentAvatarUrl) {
+                callbacks.onAvatarSelect(pendingAvatarId, pendingAvatarUrl);
+            }
+            panel.remove();
+        });
+        footer.appendChild(saveBtn);
+        panel.appendChild(footer);
+
         drawer.appendChild(panel);
     };
 
