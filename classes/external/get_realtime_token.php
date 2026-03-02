@@ -77,7 +77,7 @@ class get_realtime_token extends external_api {
             'voice' => $voice,
         ]);
 
-        $response = $curl->post('https://api.openai.com/v1/realtime/sessions', $body);
+        $response = $curl->post('https://api.openai.com/v1/realtime/client_secrets', $body);
         $info = $curl->get_info();
 
         if ($info['http_code'] !== 200) {
@@ -87,13 +87,13 @@ class get_realtime_token extends external_api {
         }
 
         $data = json_decode($response, true);
-        if (empty($data['client_secret']['value'])) {
+        if (empty($data['value'])) {
             throw new \moodle_exception('error', 'local_ai_course_assistant', '', null,
                 'Unexpected response from OpenAI Realtime API.');
         }
 
         return [
-            'token' => $data['client_secret']['value'],
+            'token' => $data['value'],
             'voice' => $voice,
         ];
     }
