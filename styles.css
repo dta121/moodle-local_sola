@@ -33,7 +33,7 @@
     height: 62px;
     border-radius: 50%;
     border: 3px solid var(--aica-avatar-color, #4a6cf7);
-    background: #ffffff;
+    background-color: var(--aica-avatar-fill, #ffffff) !important;
     cursor: pointer;
     padding: 0;
     box-shadow: 0 2px 10px rgba(74, 108, 247, 0.25);
@@ -43,6 +43,11 @@
     justify-content: center;
     overflow: hidden;
     touch-action: none;
+}
+
+/* Ensure fill shows behind avatar SVG/img */
+.local-ai-course-assistant__toggle .aica-avatar-svg {
+    background-color: var(--aica-avatar-fill, #ffffff);
 }
 
 @media (hover: hover) {

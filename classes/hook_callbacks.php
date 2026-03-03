@@ -199,6 +199,7 @@ class hook_callbacks {
             'realtimeenabled'    => $realtimeenabled,
             'ttsurl'             => $ttsurl,
             'avatarcolor'        => get_config('local_ai_course_assistant', 'avatar_color') ?: '#4a6cf7',
+            'avatarfill'         => get_config('local_ai_course_assistant', 'avatar_fill') ?: '#ffffff',
         ];
 
         $html = $OUTPUT->render_from_template('local_ai_course_assistant/chat_widget', $templatedata);
