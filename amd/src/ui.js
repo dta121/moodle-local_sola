@@ -426,14 +426,21 @@ define([
         micBtn = root.querySelector('.local-ai-course-assistant__btn-mic');
         langBtn = root.querySelector('.local-ai-course-assistant__btn-lang');
         langBanner = root.querySelector('.local-ai-course-assistant__lang-banner');
-        // Apply admin-configured avatar colors as CSS variables.
+        // Apply admin-configured avatar colors as CSS variables and inline styles.
         const avatarColor = root.dataset.avatarColor;
         if (avatarColor) {
             root.style.setProperty('--aica-avatar-color', avatarColor);
         }
-        const avatarFill = root.dataset.avatarFill;
-        if (avatarFill) {
-            root.style.setProperty('--aica-avatar-fill', avatarFill);
+        const avatarFill = root.dataset.avatarFill || '#ffffff';
+        root.style.setProperty('--aica-avatar-fill', avatarFill);
+        // Set directly on the toggle and its avatar container so Bootstrap
+        // cannot override via the button selector cascade.
+        if (toggle) {
+            toggle.style.backgroundColor = avatarFill;
+        }
+        const toggleAvatarEl = toggle ? toggle.querySelector('.aica-avatar-svg') : null;
+        if (toggleAvatarEl) {
+            toggleAvatarEl.style.backgroundColor = avatarFill;
         }
         restoreExpandState();
         applyPositionOffset();

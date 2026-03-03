@@ -87,13 +87,19 @@ class get_realtime_token extends external_api {
         }
 
         $data = json_decode($response, true);
-        if (empty($data['value'])) {
+        // GA /v1/realtime/client_secrets returns value at top level;
+        // beta /v1/realtime/sessions nests it under client_secret.value.
+        $token = !empty($data['client_secret']['value'])
+            ? $data['client_secret']['value']
+            : ($data['value'] ?? '');
+
+        if (empty($token)) {
             throw new \moodle_exception('error', 'local_ai_course_assistant', '', null,
-                'Unexpected response from OpenAI Realtime API.');
+                'Unexpected response from OpenAI Realtime API: ' . substr($response, 0, 200));
         }
 
         return [
-            'token' => $data['value'],
+            'token' => $token,
             'voice' => $voice,
         ];
     }

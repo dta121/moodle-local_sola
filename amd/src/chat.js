@@ -588,7 +588,8 @@ define([
                     },
                     onError: function(msg) {
                         UI.setVoiceState('disconnected');
-                        UI.appendVoiceTranscript('assistant', msg || 'Voice connection failed.');
+                        UI.hideVoiceOverlay();
+                        UI.addMessage('assistant', msg || 'Voice connection failed.');
                     },
                 },
                 overlay,
@@ -597,12 +598,13 @@ define([
             return;
         }).catch(function(err) {
             UI.setVoiceState('disconnected');
+            UI.hideVoiceOverlay();
             const errMsg = (err && err.message) ? err.message : 'Could not get voice token.';
             Str.get_string('chat:voice_error', 'local_ai_course_assistant').then(function(s) {
-                UI.appendVoiceTranscript('assistant', s || errMsg);
+                UI.addMessage('assistant', (s || 'Voice connection failed') + ': ' + errMsg);
                 return;
             }).catch(function() {
-                UI.appendVoiceTranscript('assistant', errMsg);
+                UI.addMessage('assistant', errMsg);
             });
         });
     };
