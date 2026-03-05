@@ -61,6 +61,8 @@ define([
     const BOOKMARK_PREFIX = 'aica_bookmarks_';
     /** Tracks the most-recent user message element (shows the edit button) */
     let lastUserMsgEl = null;
+    /** Scroll-to-bottom arrow button element */
+    let scrollDownBtn = null;
     /** Minimum pixel movement to count as a drag (suppresses subsequent click) */
     const DRAG_THRESHOLD = 8;
 
@@ -423,6 +425,34 @@ define([
         drawer = root.querySelector('.local-ai-course-assistant__drawer');
         toggle = root.querySelector('#local-ai-course-assistant-toggle');
         messagesContainer = root.querySelector('.local-ai-course-assistant__messages');
+
+        // Scroll-to-bottom arrow — appears when the user has scrolled up.
+        scrollDownBtn = document.createElement('button');
+        scrollDownBtn.className = 'local-ai-course-assistant__scroll-down';
+        scrollDownBtn.setAttribute('aria-label', 'Scroll to bottom');
+        scrollDownBtn.innerHTML =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"' +
+            ' fill="currentColor" aria-hidden="true">' +
+            '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>' +
+            '</svg>';
+        scrollDownBtn.addEventListener('click', function() {
+            messagesContainer.scrollTo({top: messagesContainer.scrollHeight, behavior: 'smooth'});
+        });
+        messagesContainer.appendChild(scrollDownBtn);
+
+        const updateScrollBtn = function() {
+            if (!scrollDownBtn || !messagesContainer) { return; }
+            const gap = messagesContainer.scrollHeight
+                - messagesContainer.scrollTop
+                - messagesContainer.clientHeight;
+            scrollDownBtn.classList.toggle('local-ai-course-assistant__scroll-down--visible', gap > 80);
+        };
+        messagesContainer.addEventListener('scroll', updateScrollBtn, {passive: true});
+        // Re-evaluate after DOM changes (new messages, streaming content).
+        if (window.ResizeObserver) {
+            new ResizeObserver(updateScrollBtn).observe(messagesContainer);
+        }
+
         input = root.querySelector('.local-ai-course-assistant__input');
         sendBtn = root.querySelector('.local-ai-course-assistant__btn-send');
         typingIndicator = root.querySelector('.local-ai-course-assistant__typing');
@@ -1106,7 +1136,9 @@ define([
         }
         const content = streamingEl.querySelector('.local-ai-course-assistant__message-content');
         content.innerHTML = Markdown.render(fullText);
-        scrollToBottom();
+        // Do not auto-scroll here — the top of the streaming message was already
+        // brought into view when streaming started. The scroll-down arrow lets the
+        // user jump to the bottom if they want to follow along.
     };
 
     /**

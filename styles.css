@@ -1105,6 +1105,48 @@
 .local-ai-course-assistant__btn-mic--recording .aica-icon-mic-stop { display: block; }
 
 /* =========================================================
+   Scroll-to-bottom arrow button
+   Sticky at the bottom of the messages area; appears when scrolled up
+   ========================================================= */
+
+.local-ai-course-assistant__scroll-down {
+    position: sticky;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    transition: opacity 0.2s, color 0.15s;
+    z-index: 10;
+    /* keep it from being part of the message flow */
+    margin-top: -40px;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.local-ai-course-assistant__scroll-down--visible {
+    display: flex;
+    pointer-events: auto;
+    opacity: 1;
+}
+
+@media (hover: hover) {
+    .local-ai-course-assistant__scroll-down:hover {
+        color: #4a6cf7;
+        border-color: #c7d2fe;
+    }
+}
+
+/* =========================================================
    Message action buttons (copy + speak)
    Absolutely positioned at bottom-right of assistant message
    ========================================================= */

@@ -408,6 +408,9 @@ define([], function() {
             case 'error':
                 if (onErrorCb) {
                     onErrorCb(msg.error ? msg.error.message : 'Unknown error');
+                    // Null out so the WebSocket close event that follows disconnect()
+                    // does not fire a second redundant error message.
+                    onErrorCb = null;
                 }
                 // Disconnect immediately so stale mic capture and WebSocket do not
                 // keep firing follow-on errors (e.g. empty audio buffer commits).
