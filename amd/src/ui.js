@@ -628,8 +628,13 @@ define([
 
         // Unified Pointer Events drag (mouse, touch, stylus) — works across all input types.
         // e.preventDefault() on pointerdown also prevents scroll during touch drag.
+        // On mobile (≤600px) the drawer is position:fixed independently of the root element,
+        // so moving the root would only move the toggle button, not the drawer — skip drag.
         header.addEventListener('pointerdown', function(e) {
             if (e.target.closest('button, a')) {
+                return;
+            }
+            if (window.innerWidth <= 600) {
                 return;
             }
             e.preventDefault();
@@ -641,10 +646,7 @@ define([
         document.addEventListener('pointerup', onDragEnd);
         document.addEventListener('pointercancel', onDragEnd);
 
-        // Toggle button drag — desktop only.
-        // On mobile (≤600px) any small swipe while tapping can accidentally save an
-        // off-screen position to localStorage. Drag is disabled on mobile; the widget
-        // stays at its CSS-defined bottom-right corner.
+        // Toggle button drag — desktop only (same mobile guard).
         if (toggle && window.innerWidth > 600) {
             toggle.addEventListener('pointerdown', function(e) {
                 onDragStart(e.clientX, e.clientY, true);
@@ -662,6 +664,9 @@ define([
                 '.aica-resize-handle';
             drawer.addEventListener('pointerdown', function(e) {
                 if (e.target.closest(DRAG_EXCLUDE)) {
+                    return;
+                }
+                if (window.innerWidth <= 600) {
                     return;
                 }
                 e.preventDefault();
