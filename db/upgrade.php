@@ -189,10 +189,10 @@ function xmldb_local_ai_course_assistant_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025022600, 'local', 'ai_course_assistant');
     }
 
-    if ($oldversion < 2026030700) {
+    if ($oldversion < 2026030701) {
         // v1.0.16: JS-only changes (typewriter animation, AudioContext TTS, Quick Study chip).
         // No schema changes needed.
-        upgrade_plugin_savepoint(true, 2026030700, 'local', 'ai_course_assistant');
+        upgrade_plugin_savepoint(true, 2026030701, 'local', 'ai_course_assistant');
     }
 
     return true;
