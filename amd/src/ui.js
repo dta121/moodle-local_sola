@@ -63,10 +63,12 @@ define([
     let lastUserMsgEl = null;
     /** Scroll-to-bottom arrow button element */
     let scrollDownBtn = null;
-    /** Whether the user has clicked "scroll down" during streaming (follow mode) */
+    /** Whether the user has clicked "scroll down" or scrolled down during streaming (follow mode) */
     let scrollFollowMode = false;
     /** Last known scrollTop — used to detect upward scroll (which exits follow mode) */
     let lastScrollTop = 0;
+    /** True while a programmatic scrollTop assignment is in progress (suppresses user-scroll detection) */
+    let programmaticScroll = false;
     /** Minimum pixel movement to count as a drag (suppresses subsequent click) */
     const DRAG_THRESHOLD = 8;
 
@@ -464,9 +466,15 @@ define([
         const updateScrollBtn = function() {
             if (!scrollDownBtn || !messagesContainer) { return; }
             const current = messagesContainer.scrollTop;
-            // Detect upward scroll → exit follow mode.
-            if (current < lastScrollTop) {
-                scrollFollowMode = false;
+            if (!programmaticScroll) {
+                // User-initiated scroll.
+                if (current < lastScrollTop) {
+                    // Scrolled up → exit follow mode.
+                    scrollFollowMode = false;
+                } else if (streamingEl && current > lastScrollTop) {
+                    // Scrolled down during streaming → enter follow mode.
+                    scrollFollowMode = true;
+                }
             }
             lastScrollTop = current;
             const gap = messagesContainer.scrollHeight - current - messagesContainer.clientHeight;
@@ -501,6 +509,10 @@ define([
         if (toggleAvatarEl) {
             toggleAvatarEl.style.backgroundColor = avatarFill;
         }
+        // Apply drawer display mode if configured.
+        if (root.dataset.displaymode === 'drawer') {
+            root.classList.add('local-ai-course-assistant--drawer-mode');
+        }
         restoreExpandState();
         applyPositionOffset();
         initDrag();
@@ -516,7 +528,7 @@ define([
      * Apply custom x/y offset from data attributes, overriding CSS class defaults.
      */
     const applyPositionOffset = function() {
-        if (!root) {
+        if (!root || root.classList.contains('local-ai-course-assistant--drawer-mode')) {
             return;
         }
         const ox = parseInt(root.dataset.offsetX, 10);
@@ -536,7 +548,7 @@ define([
      * Saves/restores position via localStorage.
      */
     const initDrag = function() {
-        if (!root) {
+        if (!root || root.classList.contains('local-ai-course-assistant--drawer-mode')) {
             return;
         }
         const header = root.querySelector('.local-ai-course-assistant__header');
@@ -1220,11 +1232,19 @@ define([
         const content = streamingEl.querySelector('.local-ai-course-assistant__message-content');
         if (content) {
             content.innerHTML = Markdown.render(partial);
-            // Only auto-scroll if user explicitly clicked the down arrow.
-            // Otherwise the message top stays fixed so students read from the beginning.
+            programmaticScroll = true;
             if (scrollFollowMode) {
+                // User scrolled down or clicked the down arrow — follow the bottom.
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } else if (messagesContainer && streamingEl) {
+                // Auto-scroll to reveal new text, but never scroll the message top
+                // above the top of the visible area.
+                var msgTop = streamingEl.offsetTop;
+                var maxScroll = msgTop - 4;
+                var idealScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+                messagesContainer.scrollTop = Math.min(idealScroll, maxScroll);
             }
+            programmaticScroll = false;
         }
     };
 
@@ -1291,14 +1311,16 @@ define([
             }
 
             streamingEl = null;
+            programmaticScroll = true;
             if (scrollFollowMode) {
                 // User was following — land at the bottom of the completed message.
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 scrollFollowMode = false;
             } else {
-                // Default: snap back to the top so students read from the beginning.
+                // Default: snap to the message top so students read from the beginning.
                 scrollToMessageTop(completedEl);
             }
+            programmaticScroll = false;
         }
     };
 

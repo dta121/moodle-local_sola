@@ -773,6 +773,141 @@
 /* On mobile, expand button acts as minimize/restore — keep it visible */
 
 /* =========================================================
+   Side-drawer display mode
+   Full-height panel fixed to the right edge of the viewport.
+   Activated by data-displaymode="drawer" on the root element.
+   ========================================================= */
+
+.local-ai-course-assistant--drawer-mode {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    z-index: 100000;
+    pointer-events: none;
+}
+
+/* Toggle becomes a vertical tab on the right edge */
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 80px;
+    border-radius: 8px 0 0 8px;
+    border: none;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.12);
+    pointer-events: auto;
+    z-index: 100001;
+}
+
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg,
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg--toggle {
+    width: 28px;
+    height: 28px;
+}
+
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .local-ai-course-assistant__avatar-img {
+    width: 28px;
+    height: 28px;
+}
+
+@media (hover: hover) {
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle:hover {
+        transform: translateY(-50%) scale(1);
+        box-shadow: -4px 0 14px rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* Hide toggle tab when drawer is open */
+.local-ai-course-assistant--drawer-mode.local-ai-course-assistant--open .local-ai-course-assistant__toggle {
+    display: none;
+}
+
+/* Drawer: full-height right panel */
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 400px;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    opacity: 1;
+    pointer-events: none;
+    transition: transform 0.3s ease;
+}
+
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer[aria-hidden="false"] {
+    transform: translateX(0);
+    pointer-events: auto;
+    opacity: 1;
+}
+
+/* Expanded state in drawer mode — wider panel */
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer--expanded {
+    width: clamp(400px, 35vw, 600px);
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+}
+
+/* Hide swipe handle in drawer mode (desktop sidebar, not mobile sheet) */
+.local-ai-course-assistant--drawer-mode .aica-swipe-handle {
+    display: none;
+}
+
+/* Resize handles: only show left-edge handle (to resize width) */
+.local-ai-course-assistant--drawer-mode .aica-resize-handle--n,
+.local-ai-course-assistant--drawer-mode .aica-resize-handle--nw {
+    display: none;
+}
+
+/* On mobile, drawer mode falls back to the standard mobile full-screen behavior */
+@media (max-width: 600px) {
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle {
+        position: fixed;
+        right: 12px;
+        bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
+        top: auto;
+        transform: none;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 3px solid var(--aica-avatar-color, #4a6cf7);
+    }
+
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg,
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg--toggle {
+        width: 36px;
+        height: 36px;
+    }
+
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .local-ai-course-assistant__avatar-img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .local-ai-course-assistant--drawer-mode.local-ai-course-assistant--open .local-ai-course-assistant__toggle {
+        display: flex;
+        position: relative;
+        z-index: 1;
+    }
+
+    .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer {
+        width: 100% !important;
+        border-radius: 0 !important;
+    }
+}
+
+/* =========================================================
    Reset/home button in header
    ========================================================= */
 

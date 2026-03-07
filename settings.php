@@ -143,6 +143,19 @@ if ($hassiteconfig) {
         '#ffffff'
     ));
 
+    // Display mode.
+    $displaymodes = [
+        'widget' => get_string('settings:display_mode_widget', 'local_ai_course_assistant'),
+        'drawer' => get_string('settings:display_mode_drawer', 'local_ai_course_assistant'),
+    ];
+    $settings->add(new admin_setting_configselect(
+        'local_ai_course_assistant/display_mode',
+        get_string('settings:display_mode', 'local_ai_course_assistant'),
+        get_string('settings:display_mode_desc', 'local_ai_course_assistant'),
+        'widget',
+        $displaymodes
+    ));
+
     // Position.
     $positions = [
         'bottom-right' => get_string('settings:position_br', 'local_ai_course_assistant'),

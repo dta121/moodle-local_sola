@@ -73,6 +73,7 @@ class hook_callbacks {
 
         // Get config values.
         $position = get_config('local_ai_course_assistant', 'position') ?: 'bottom-right';
+        $displaymode = get_config('local_ai_course_assistant', 'display_mode') ?: 'widget';
 
         // User's personally chosen avatar (falls back to site default).
         $useravatar = \get_user_preferences('local_ai_course_assistant_avatar', null);
@@ -209,6 +210,7 @@ class hook_callbacks {
             'ttsurl'             => $ttsurl,
             'avatarcolor'        => get_config('local_ai_course_assistant', 'avatar_color') ?: '#4a6cf7',
             'avatarfill'         => get_config('local_ai_course_assistant', 'avatar_fill') ?: '#ffffff',
+            'displaymode'        => $displaymode,
         ];
 
         $html = $OUTPUT->render_from_template('local_ai_course_assistant/chat_widget', $templatedata);

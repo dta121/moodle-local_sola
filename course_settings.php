@@ -296,6 +296,14 @@ echo html_writer::div(
                     </div>
                 </div>
             </div>
+            <div class="form-group row mt-2">
+                <div class="col-sm-9 offset-sm-3">
+                    <a href="<?php echo (new moodle_url('/local/ai_course_assistant/rag_admin.php'))->out(false); ?>"
+                       class="btn btn-sm btn-outline-secondary" target="_blank">
+                        <?php echo get_string('ragadmin:title', 'local_ai_course_assistant'); ?> &rarr;
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
     <?php } ?>
