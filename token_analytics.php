@@ -75,7 +75,8 @@ $msgwhere = "m.role = 'assistant' AND m.model_name IS NOT NULL{$timewhere}{$cour
 // ── Query 1: Aggregate by model/provider ──────────────────────────────────────
 
 $bymodel = $DB->get_records_sql(
-    "SELECT COALESCE(m.model_name,'unknown') AS model,
+    "SELECT " . $DB->sql_concat("COALESCE(m.model_name,'unknown')", "'-'", "COALESCE(m.provider,'unknown')") . " AS id,
+            COALESCE(m.model_name,'unknown') AS model,
             COALESCE(m.provider,'unknown')   AS provider,
             COUNT(m.id)                       AS response_count,
             SUM(COALESCE(m.prompt_tokens,0))      AS total_prompt,
@@ -83,7 +84,7 @@ $bymodel = $DB->get_records_sql(
        FROM {local_ai_course_assistant_msgs} m
       WHERE {$msgwhere}
       GROUP BY m.model_name, m.provider
-      ORDER BY total_prompt + total_completion DESC",
+      ORDER BY SUM(COALESCE(m.prompt_tokens,0)) + SUM(COALESCE(m.completion_tokens,0)) DESC",
     $params
 );
 
@@ -129,9 +130,8 @@ $bystudent = $DB->get_records_sql(
        JOIN {user} u ON u.id = m.userid
       WHERE {$msgwhere}
       GROUP BY m.userid, u.firstname, u.lastname
-      ORDER BY total_prompt + total_completion DESC
-      LIMIT 100",
-    $params
+      ORDER BY SUM(COALESCE(m.prompt_tokens,0)) + SUM(COALESCE(m.completion_tokens,0)) DESC",
+    $params, 0, 100
 );
 
 $bystudentrows = [];
