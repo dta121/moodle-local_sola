@@ -778,18 +778,29 @@ define([
         // dismissal when scrolling through messages or swiping on content.
         var swipeTouchStartY = 0;
         var swipeTouchStartX = 0;
+        var swipeMaxDy = 0;
         var swipeHandle = drawer ? drawer.querySelector('.aica-swipe-handle') : null;
         if (swipeHandle) {
             swipeHandle.addEventListener('touchstart', function(e) {
                 swipeTouchStartY = e.touches[0].clientY;
                 swipeTouchStartX = e.touches[0].clientX;
+                swipeMaxDy = 0;
+            }, {passive: true});
+
+            // Track the furthest downward point the finger reaches during the swipe.
+            swipeHandle.addEventListener('touchmove', function(e) {
+                var dy = e.touches[0].clientY - swipeTouchStartY;
+                if (dy > swipeMaxDy) {
+                    swipeMaxDy = dy;
+                }
             }, {passive: true});
 
             swipeHandle.addEventListener('touchend', function(e) {
-                var dy = e.changedTouches[0].clientY - swipeTouchStartY;
+                // Use max downward distance reached, not just the lift position.
+                var dy = swipeMaxDy;
                 var dx = Math.abs(e.changedTouches[0].clientX - swipeTouchStartX);
-                // Swipe down ≥ 60px, more vertical than horizontal → close drawer.
-                if (dy > 60 && dx < dy * 0.8) {
+                // Swipe down ≥ 40px, more vertical than horizontal → close drawer.
+                if (dy > 40 && dx < dy) {
                     closeDrawer();
                 }
             }, {passive: true});

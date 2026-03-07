@@ -73,7 +73,7 @@
     position: absolute;
     width: 360px;
     min-width: 300px;
-    max-height: 624px;
+    height: 624px;
     background: #fff;
     border-radius: 16px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
@@ -195,7 +195,9 @@
 /* Messages area — flex: 1 lets it fill available drawer height automatically */
 .local-ai-course-assistant__messages {
     flex: 1 1 auto;
+    min-height: 0;          /* required: lets flex-shrink work so overflow-y triggers */
     overflow-y: auto;
+    overscroll-behavior: contain; /* prevent body scroll when messages scroll hits the top/bottom */
     -webkit-overflow-scrolling: touch;
     padding: 12px;
     display: flex;
@@ -602,7 +604,7 @@
         right: 8px;
         bottom: 78px;
         width: auto;
-        max-height: calc(100dvh - 96px);
+        height: calc(100dvh - 96px);
         border-radius: 12px;
     }
 
