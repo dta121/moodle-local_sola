@@ -857,6 +857,14 @@
     transition: transform 0.3s ease;
 }
 
+/* On first paint in drawer mode the drawer must be visible immediately (no slide-in).
+   JS adds --drawer-ready after init so subsequent close/reopen still animates. */
+.local-ai-course-assistant--drawer-mode:not(.local-ai-course-assistant--drawer-ready) .local-ai-course-assistant__drawer {
+    transform: translateX(0);
+    pointer-events: auto;
+    transition: none;
+}
+
 .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer[aria-hidden="false"] {
     transform: translateX(0);
     pointer-events: auto;

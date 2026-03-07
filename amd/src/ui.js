@@ -512,16 +512,16 @@ define([
         // Apply drawer display mode if configured — auto-open, hide toggle.
         if (root.dataset.displaymode === 'drawer') {
             root.classList.add('local-ai-course-assistant--drawer-mode');
-            // Auto-open the drawer without slide-in animation on first load.
+            // CSS rule keeps drawer visible before --drawer-ready is added,
+            // preventing the open/close flash on first paint.
             if (drawer) {
-                drawer.style.transition = 'none';
                 drawer.setAttribute('aria-hidden', 'false');
                 drawer.classList.add('local-ai-course-assistant__drawer--open');
                 root.classList.add('local-ai-course-assistant--open');
-                // Re-enable transition after paint so close/reopen still animate.
+                // Enable transitions for subsequent close/reopen after first paint.
                 requestAnimationFrame(function() {
                     requestAnimationFrame(function() {
-                        drawer.style.transition = '';
+                        root.classList.add('local-ai-course-assistant--drawer-ready');
                     });
                 });
             }
