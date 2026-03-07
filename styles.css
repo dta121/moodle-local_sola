@@ -788,33 +788,47 @@
     pointer-events: none;
 }
 
-/* In drawer mode, toggle becomes a thin tab on the right edge (no circle avatar).
+/* In drawer mode, toggle becomes a tab on the right edge with avatar.
    Hidden when the drawer is open; shown as a reopen tab when closed. */
 .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle {
     position: fixed;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 28px;
-    height: 72px;
-    border-radius: 8px 0 0 8px;
+    width: 44px;
+    height: 52px;
+    border-radius: 10px 0 0 10px;
     border: none;
     background: var(--aica-avatar-color, #4a6cf7) !important;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.12);
     pointer-events: auto;
     z-index: 100001;
-    padding: 0;
+    padding: 4px 2px 4px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg,
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+}
+
 .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .local-ai-course-assistant__avatar-img {
-    display: none;
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
 }
 
 @media (hover: hover) {
     .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle:hover {
         transform: translateY(-50%);
-        width: 34px;
+        width: 50px;
         box-shadow: -4px 0 12px rgba(0, 0, 0, 0.2);
     }
 }
