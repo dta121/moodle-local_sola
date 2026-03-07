@@ -512,11 +512,18 @@ define([
         // Apply drawer display mode if configured — auto-open, hide toggle.
         if (root.dataset.displaymode === 'drawer') {
             root.classList.add('local-ai-course-assistant--drawer-mode');
-            // Auto-open the drawer since there's no toggle button.
+            // Auto-open the drawer without slide-in animation on first load.
             if (drawer) {
+                drawer.style.transition = 'none';
                 drawer.setAttribute('aria-hidden', 'false');
                 drawer.classList.add('local-ai-course-assistant__drawer--open');
                 root.classList.add('local-ai-course-assistant--open');
+                // Re-enable transition after paint so close/reopen still animate.
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        drawer.style.transition = '';
+                    });
+                });
             }
             if (toggle) {
                 toggle.setAttribute('aria-expanded', 'true');
