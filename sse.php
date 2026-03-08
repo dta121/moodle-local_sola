@@ -53,6 +53,7 @@ $message    = required_param('message', PARAM_RAW);
 $lang       = optional_param('lang', '', PARAM_ALPHA);      // ISO 639-1 language preference.
 $pageid     = optional_param('pageid', 0, PARAM_INT);       // Course-module ID of the current page.
 $pagetitle  = optional_param('pagetitle', '', PARAM_TEXT);  // Title of the current resource/activity.
+$coachstyle = optional_param('coachingstyle', '', PARAM_ALPHA); // Coaching style: coach, buddy, tutor.
 
 // Validate context and capability.
 $context = context_course::instance($courseid);
@@ -180,6 +181,25 @@ try {
     $systemprompt = context_builder::build_system_prompt(
         $courseid, $userid, $lang, $retrievedchunks, $pageid, $pagetitle
     );
+
+    // Append coaching style instruction if the student set a preference.
+    if (!empty($coachstyle)) {
+        $styles = [
+            'coach' => 'You are a Motivational Coach. Be enthusiastic, encouraging, and upbeat. '
+                . 'Celebrate effort and progress. Use phrases like "Great thinking!", "You\'re making real progress!", '
+                . '"Let\'s keep that momentum going!". Frame challenges as opportunities.',
+            'buddy' => 'You are a Study Buddy. Be casual, friendly, and conversational. '
+                . 'Use informal language as if talking to a friend. Say things like "Oh nice question!", '
+                . '"Yeah that\'s a tricky one", "Let\'s figure this out together". Keep it relaxed and supportive.',
+            'tutor' => 'You are a Direct Tutor. Be clear, concise, and efficient. '
+                . 'Get straight to the point. Provide structured explanations with minimal filler. '
+                . 'Focus on accuracy and completeness rather than encouragement.',
+        ];
+        if (isset($styles[$coachstyle])) {
+            $systemprompt .= "\n\n## Coaching Style\n" . $styles[$coachstyle];
+        }
+    }
+
     $history = conversation_manager::get_history_for_api($conv->id);
 
     // Create provider and stream (uses per-course overrides if configured).

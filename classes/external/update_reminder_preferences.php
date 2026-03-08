@@ -66,11 +66,16 @@ class update_reminder_preferences extends external_api {
         require_capability('local/ai_course_assistant:use', $context);
 
         if ($params['enabled']) {
+            // Default destination to the user's Moodle email for email channel.
+            $destination = $params['destination'];
+            if (empty($destination) && $params['channel'] === 'email') {
+                $destination = $USER->email;
+            }
             reminder_manager::subscribe(
                 $USER->id,
                 $params['courseid'],
                 $params['channel'],
-                $params['destination'],
+                $destination,
                 $params['country_code'],
                 $params['frequency']
             );

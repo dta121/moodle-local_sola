@@ -2230,6 +2230,37 @@ define([
         const content = document.createElement('div');
         content.className = 'aica-settings-panel__content';
 
+        // ── Coaching Style ──
+        const coachSection = document.createElement('div');
+        coachSection.className = 'aica-settings-panel__section';
+        const coachHead = document.createElement('h3');
+        coachHead.className = 'aica-settings-panel__section-title';
+        coachHead.textContent = 'Coaching Style';
+        coachSection.appendChild(coachHead);
+
+        const coachSelect = document.createElement('select');
+        coachSelect.className = 'aica-settings-panel__select';
+        var currentCoach = '';
+        try { currentCoach = localStorage.getItem('aica_coaching_style') || ''; } catch (e) { /**/ }
+        var pendingCoach = currentCoach;
+        [
+            {id: '', label: 'Default (Socratic guide)'},
+            {id: 'coach', label: 'Motivational Coach'},
+            {id: 'buddy', label: 'Study Buddy'},
+            {id: 'tutor', label: 'Direct Tutor'},
+        ].forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.label;
+            if (currentCoach === s.id) { opt.selected = true; }
+            coachSelect.appendChild(opt);
+        });
+        coachSelect.addEventListener('change', function() {
+            pendingCoach = coachSelect.value;
+        });
+        coachSection.appendChild(coachSelect);
+        content.appendChild(coachSection);
+
         // ── Language ──
         const langSection = document.createElement('div');
         langSection.className = 'aica-settings-panel__section';
@@ -2495,6 +2526,62 @@ define([
             content.appendChild(progSection);
         }
 
+        // ── Study Reminders ──
+        if (config.emailRemindersEnabled) {
+            const remSection = document.createElement('div');
+            remSection.className = 'aica-settings-panel__section';
+            const remHead = document.createElement('h3');
+            remHead.className = 'aica-settings-panel__section-title';
+            remHead.textContent = 'Study Reminders';
+            remSection.appendChild(remHead);
+
+            const remDesc = document.createElement('p');
+            remDesc.className = 'aica-settings-panel__empty-note';
+            remDesc.textContent = 'Get email nudges to keep your study streak going.';
+            remSection.appendChild(remDesc);
+
+            // Toggle row.
+            const remRow = document.createElement('div');
+            remRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px';
+            const remToggle = document.createElement('input');
+            remToggle.type = 'checkbox';
+            remToggle.id = 'aica-reminder-toggle';
+            remToggle.checked = !!(config.reminderEnabled);
+            const remLabel = document.createElement('label');
+            remLabel.htmlFor = 'aica-reminder-toggle';
+            remLabel.textContent = 'Email me study reminders';
+            remLabel.style.cssText = 'font-size:13px;cursor:pointer';
+            remRow.appendChild(remToggle);
+            remRow.appendChild(remLabel);
+            remSection.appendChild(remRow);
+
+            // Frequency select.
+            const freqRow = document.createElement('div');
+            freqRow.style.cssText = 'margin-top:6px';
+            const freqSelect = document.createElement('select');
+            freqSelect.className = 'aica-settings-panel__select';
+            [
+                {id: 'daily', label: 'Daily'},
+                {id: 'every_other_day', label: 'Every other day'},
+                {id: 'weekly', label: 'Weekly'},
+            ].forEach(function(f) {
+                var opt = document.createElement('option');
+                opt.value = f.id;
+                opt.textContent = f.label;
+                if ((config.reminderFrequency || 'daily') === f.id) { opt.selected = true; }
+                freqSelect.appendChild(opt);
+            });
+            freqRow.appendChild(freqSelect);
+            remSection.appendChild(freqRow);
+
+            // Store references for save handler.
+            remSection._toggle = remToggle;
+            remSection._freqSelect = freqSelect;
+            remSection.dataset.hasReminders = '1';
+
+            content.appendChild(remSection);
+        }
+
         // Avatar section appended last so it appears at the bottom of settings.
         if (avatarSection) {
             content.appendChild(avatarSection);
@@ -2524,10 +2611,23 @@ define([
                     callbacks.onVoiceSelect(pendingVoice);
                 }
             }
+            // Save coaching style.
+            try {
+                if (pendingCoach) {
+                    localStorage.setItem('aica_coaching_style', pendingCoach);
+                } else {
+                    localStorage.removeItem('aica_coaching_style');
+                }
+            } catch (e) { /**/ }
             // Save TTS speed if slider exists.
             const voiceSec = content.querySelector('[data-has-speed-slider="1"]');
             if (voiceSec && voiceSec._speedSlider) {
                 localStorage.setItem('aica_tts_speed', voiceSec._speedSlider.value);
+            }
+            // Save reminder preferences if section exists.
+            const remSec = content.querySelector('[data-has-reminders="1"]');
+            if (remSec && remSec._toggle && callbacks.onReminderUpdate) {
+                callbacks.onReminderUpdate(remSec._toggle.checked, remSec._freqSelect.value);
             }
             panel.remove();
         });

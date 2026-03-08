@@ -462,6 +462,12 @@ $string['chat:voice_idle']              = 'Ready';
 $string['chat:voice_error']             = 'Voice connection failed. Please check your settings.';
 $string['chat:quiz_locked']             = 'SOLA is paused during quizzes to support academic integrity. Good luck!';
 
+// Wellbeing & Safety settings.
+$string['settings:wellbeing_heading']      = 'Wellbeing & Safety';
+$string['settings:wellbeing_heading_desc'] = 'When enabled, SOLA detects expressions of distress or crisis and responds with empathy and globally-applicable support resources (findahelpline.com, Crisis Text Line, Befrienders Worldwide). SOLA is NOT a counselor — it acknowledges feelings, directs students to human support, and never attempts diagnosis or therapy.';
+$string['settings:wellbeing_enabled']      = 'Enable Wellbeing Support';
+$string['settings:wellbeing_enabled_desc'] = 'When enabled, SOLA will detect signs of emotional distress and provide empathetic responses with links to global crisis resources. Disable this if your institution provides its own crisis response and does not want SOLA to surface external resources.';
+
 // Voice mode settings.
 $string['settings:realtime_heading']      = 'Voice Mode (OpenAI Realtime)';
 $string['settings:realtime_enabled']      = 'Enable Voice Mode';

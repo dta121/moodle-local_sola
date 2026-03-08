@@ -64,6 +64,10 @@ define([
     let currentAudio = null;
     /** @type {AudioContext|null} Shared AudioContext unlocked by user gesture (iOS TTS fix) */
     let sharedAudioCtx = null;
+    /** @type {number} Count of messages sent in this session (for study break nudge) */
+    let sessionMessageCount = 0;
+    /** @type {boolean} Whether we've already shown a study break nudge this session */
+    let breakNudgeShown = false;
 
     /**
      * Initialize the chat module.
@@ -528,47 +532,79 @@ define([
         let quizHistory = [];
         try { studySessions = JSON.parse(localStorage.getItem('aica_study_sessions_' + courseId) || '[]'); } catch (e) { /**/ }
         try { quizHistory = JSON.parse(localStorage.getItem('aica_quiz_history_' + courseId) || '[]'); } catch (e) { /**/ }
-        UI.showSettingsPanel(
-            {
-                langs: Speech.SUPPORTED_LANGS,
-                currentLang: Speech.getLang(),
-                avatars: avatars,
-                currentAvatarUrl: root.dataset.avatarurl || '',
-                realtimeEnabled: root.dataset.realtimeenabled === '1' || root.dataset.realtimeenabled === 'true',
-                hasTts: !!(root.dataset.ttsurl),
-                currentVoice: localStorage.getItem('aica_tts_voice') || 'shimmer',
-                studySessions: studySessions,
-                quizHistory: quizHistory,
-            },
-            {
-                onLangSelect: function(code, name) {
-                    if (code) {
-                        Speech.setLang(code);
-                    } else {
-                        Speech.clearLang();
+
+        // Fetch reminder preferences, then show panel.
+        var reminderEnabled = false;
+        var reminderFrequency = 'daily';
+        var showPanel = function() {
+            UI.showSettingsPanel(
+                {
+                    langs: Speech.SUPPORTED_LANGS,
+                    currentLang: Speech.getLang(),
+                    avatars: avatars,
+                    currentAvatarUrl: root.dataset.avatarurl || '',
+                    realtimeEnabled: root.dataset.realtimeenabled === '1' || root.dataset.realtimeenabled === 'true',
+                    hasTts: !!(root.dataset.ttsurl),
+                    currentVoice: localStorage.getItem('aica_tts_voice') || 'shimmer',
+                    studySessions: studySessions,
+                    quizHistory: quizHistory,
+                    emailRemindersEnabled: root.dataset.emailreminders === '1',
+                    reminderEnabled: reminderEnabled,
+                    reminderFrequency: reminderFrequency,
+                },
+                {
+                    onLangSelect: function(code, name) {
+                        if (code) {
+                            Speech.setLang(code);
+                        } else {
+                            Speech.clearLang();
+                        }
+                        UI.setLangLabel(name);
+                        updateStarterTexts(code);
+                    },
+                    onAvatarSelect: function(avatarId, avatarUrl) {
+                        Repo.saveAvatarPreference(avatarId).then(function() {
+                            root.dataset.avatarurl = avatarUrl;
+                            UI.updateAvatarImages(avatarUrl);
+                            return;
+                        }).catch(function() { /**/ });
+                    },
+                    onVoiceSelect: function(voice) {
+                        localStorage.setItem('aica_tts_voice', voice);
+                    },
+                    onClearProgress: function() {
+                        try {
+                            localStorage.removeItem('aica_study_sessions_' + courseId);
+                            localStorage.removeItem('aica_quiz_history_' + courseId);
+                            localStorage.removeItem('aica_last_session_' + courseId);
+                        } catch (e) { /**/ }
+                    },
+                    onReminderUpdate: function(enabled, frequency) {
+                        Repo.updateReminderPreferences(courseId, 'email', '', '', frequency, enabled)
+                            .catch(function() { /**/ });
+                    },
+                }
+            );
+        };
+
+        // Try to load current reminder state before opening panel.
+        if (root.dataset.emailreminders === '1') {
+            Repo.getReminderPreferences(courseId).then(function(prefs) {
+                if (prefs && prefs.reminders) {
+                    for (var i = 0; i < prefs.reminders.length; i++) {
+                        if (prefs.reminders[i].channel === 'email') {
+                            reminderEnabled = true;
+                            reminderFrequency = prefs.reminders[i].frequency || 'daily';
+                            break;
+                        }
                     }
-                    UI.setLangLabel(name);
-                    updateStarterTexts(code);
-                },
-                onAvatarSelect: function(avatarId, avatarUrl) {
-                    Repo.saveAvatarPreference(avatarId).then(function() {
-                        root.dataset.avatarurl = avatarUrl;
-                        UI.updateAvatarImages(avatarUrl);
-                        return;
-                    }).catch(function() { /**/ });
-                },
-                onVoiceSelect: function(voice) {
-                    localStorage.setItem('aica_tts_voice', voice);
-                },
-                onClearProgress: function() {
-                    try {
-                        localStorage.removeItem('aica_study_sessions_' + courseId);
-                        localStorage.removeItem('aica_quiz_history_' + courseId);
-                        localStorage.removeItem('aica_last_session_' + courseId);
-                    } catch (e) { /**/ }
-                },
-            }
-        );
+                }
+                showPanel();
+                return;
+            }).catch(function() { showPanel(); });
+        } else {
+            showPanel();
+        }
     };
 
     /**
@@ -1257,6 +1293,20 @@ define([
                             if (hist.length > 50) { hist.splice(0, hist.length - 50); }
                             localStorage.setItem(histKey, JSON.stringify(hist));
                         } catch (e) { /**/ }
+                        // Post score-specific encouragement to chat.
+                        const pctVal = total > 0 ? Math.round((score / total) * 100) : 0;
+                        var encourageMsg;
+                        if (pctVal >= 80) {
+                            encourageMsg = 'Quiz complete: **' + score + '/' + total + '** (' + pctVal + '%) on *' + topic + '*. ' +
+                                'Excellent work! You clearly understand this material. Ready for a new challenge?';
+                        } else if (pctVal >= 50) {
+                            encourageMsg = 'Quiz complete: **' + score + '/' + total + '** (' + pctVal + '%) on *' + topic + '*. ' +
+                                'Solid effort! A quick review of the tricky parts will get you even further.';
+                        } else {
+                            encourageMsg = 'Quiz complete: **' + score + '/' + total + '** (' + pctVal + '%) on *' + topic + '*. ' +
+                                'This topic trips a lot of people up — that\'s OK. Let\'s review the material together and try again.';
+                        }
+                        addAssistantMsg(encourageMsg);
                         // Prepare adaptive follow-up chips for when user exits the summary.
                         const pct = total > 0 ? score / total : 0;
                         if (pct < 0.5) {
@@ -1985,6 +2035,7 @@ define([
         }
 
         sending = true;
+        sessionMessageCount++;
         UI.hideStarters();
         UI.setInputEnabled(false);
         UI.clearInput();
@@ -2015,6 +2066,10 @@ define([
         if (currentPageTitle) {
             postData.pagetitle = currentPageTitle;
         }
+        try {
+            var coachStyle = localStorage.getItem('aica_coaching_style');
+            if (coachStyle) { postData.coachingstyle = coachStyle; }
+        } catch (e) { /**/ }
 
         streamController = SSE.startStream(sseUrl, postData, {
             onToken: function(token) {
@@ -2048,6 +2103,17 @@ define([
                             : ['Tell me more', 'Give me an example', 'Quiz me on this'];
                         UI.showSuggestions(chips, handleSuggestionClick);
                     }
+                }
+                // Study break nudge after ~30 messages in one session.
+                if (!breakNudgeShown && sessionMessageCount >= 30) {
+                    breakNudgeShown = true;
+                    setTimeout(function() {
+                        UI.addMessage('assistant',
+                            "You've been studying for a while — nice dedication! " +
+                            "Research shows short breaks improve retention. " +
+                            "Consider stepping away for 5\u201310 minutes, then come back refreshed. \ud83d\udcaa",
+                            null);
+                    }, 1500);
                 }
                 sending = false;
                 streamController = null;

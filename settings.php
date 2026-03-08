@@ -416,6 +416,20 @@ if ($hassiteconfig) {
         ''
     ));
 
+    // --- Wellbeing & Safety Settings ---
+    $settings->add(new admin_setting_heading(
+        'local_ai_course_assistant/wellbeing_heading',
+        get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
+        get_string('settings:wellbeing_heading_desc', 'local_ai_course_assistant')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_ai_course_assistant/wellbeing_enabled',
+        get_string('settings:wellbeing_enabled', 'local_ai_course_assistant'),
+        get_string('settings:wellbeing_enabled_desc', 'local_ai_course_assistant'),
+        1
+    ));
+
     // --- Voice Mode (OpenAI Realtime) Settings ---
     $settings->add(new admin_setting_heading(
         'local_ai_course_assistant/realtime_heading',
