@@ -869,7 +869,7 @@
     max-height: none;
     border-radius: 0;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
-    transform: translateX(100%);
+    transform: translateX(calc(100% + 20px));
     opacity: 1;
     pointer-events: none;
     transition: transform 0.3s ease;
@@ -908,13 +908,15 @@
     display: none;
 }
 
-/* On mobile, drawer mode slides from right instead of bottom */
+/* On mobile, drawer mode slides from right instead of bottom.
+   Use calc(100% + 20px) to guarantee the drawer clears the viewport on iOS
+   where safe-area insets or sub-pixel rounding can leave a sliver visible. */
 @media (max-width: 600px) {
     .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer {
         width: 85% !important;
         max-width: 360px !important;
         border-radius: 0 !important;
-        transform: translateX(100%) !important;
+        transform: translateX(calc(100% + 20px)) !important;
     }
     .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer--open {
         transform: translateX(0) !important;
