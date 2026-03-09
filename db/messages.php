@@ -33,8 +33,10 @@ $messageproviders = [
     ],
     'study_notes' => [
         'defaults' => [
-            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_LOGGEDIN,
-            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_LOGGEDOFF,
+            // Moodle 4.5+ removed separate logged-in/logged-off defaults.
+            // Default study notes to email delivery and leave popup opt-in.
+            'popup' => MESSAGE_PERMITTED,
+            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
         ],
     ],
 ];
