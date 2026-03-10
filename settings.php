@@ -67,17 +67,17 @@ if ($hassiteconfig) {
     $tabconfigjson = json_encode($settingtabs, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
     $toptoolshtml = <<<HTML
 <style>
-#admin-top_save_btn .form-label {
+.aica-settings-tools-row .form-label {
     display: none;
 }
 
-#admin-top_save_btn .form-setting {
+.aica-settings-tools-row .form-setting {
     flex: 0 0 100%;
     max-width: 100%;
 }
 
-#admin-top_save_btn .form-shortname,
-#admin-top_save_btn .form-description {
+.aica-settings-tools-row .form-shortname,
+.aica-settings-tools-row .form-description {
     display: none;
 }
 
@@ -153,7 +153,8 @@ if ($hassiteconfig) {
 document.addEventListener("DOMContentLoaded", function() {
     var sections = {$tabconfigjson};
     var storageKey = "local_ai_course_assistant_admin_tab";
-    var toolRow = document.getElementById("admin-top_save_btn");
+    var settingsShell = document.getElementById("aica-settings-shell");
+    var toolRow = settingsShell ? settingsShell.closest(".form-item.row") : null;
     var topSave = document.getElementById("aica-top-save");
     var bottomButtons = document.querySelector(".form-buttons");
     if (topSave && bottomButtons && !document.getElementById("aica-top-buttons")) {
@@ -164,6 +165,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (!toolRow) {
         return;
     }
+    toolRow.classList.add("aica-settings-tools-row");
     var fieldset = toolRow.closest("fieldset");
     var tabsRoot = document.getElementById("aica-settings-tabs");
     if (!fieldset || !tabsRoot || fieldset.querySelector(".aica-settings-panel")) {
