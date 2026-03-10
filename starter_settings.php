@@ -346,10 +346,12 @@ echo $OUTPUT->header();
                 <span>[+]</span> How to use this page
             </h6>
             <div style="display:none;margin-top:12px;font-size:14px;line-height:1.6;">
-                <p><strong>Built-in starters</strong> stay in the system. You can reorder them, enable or disable them, change their icon, and edit their prompt copy where that makes sense, but you cannot delete them.</p>
-                <p><strong>Custom starters</strong> are prompt-based chips you create. You can set the visible name, description, icon, prompt, and optional visibility condition.</p>
-                <p><strong>Prompt placeholders:</strong> use <code>{page}</code> to insert the current page title automatically when a student clicks the chip.</p>
-                <p><strong>Per-course overrides:</strong> after saving changes here, use each course settings page to show or hide individual starters for that course.</p>
+                <p><strong>Built-in starters</strong> stay in the system. You can reorder them, enable or disable them, change their icon, and adjust prompt copy where that makes sense, but you cannot delete them.</p>
+                <p><strong>Custom starters</strong> are fully prompt-based chips you create. You can set the visible name, description, icon, prompt, and optional visibility condition.</p>
+                <p><strong>Starter types:</strong> prompt starters send a message into chat, quiz starters open the quiz flow, speaking starters launch voice conversation, and pronunciation starters launch pronunciation coaching.</p>
+                <p><strong>Conditional visibility:</strong> starters marked <code>tts</code> only appear when voice/TTS is configured globally, and starters marked <code>realtime</code> only appear when Realtime voice is enabled globally.</p>
+                <p><strong>Prompt placeholders:</strong> use <code>{page}</code> to automatically insert the current page title when a student clicks the starter.</p>
+                <p><strong>Per-course overrides:</strong> after saving changes here, go to a course's settings page to show or hide individual starters for that course without changing the global default for other courses.</p>
             </div>
         </div>
     </div>

@@ -561,7 +561,7 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading(
         'local_ai_course_assistant/realtime_heading',
         get_string('settings:realtime_heading', 'local_ai_course_assistant'),
-        ''
+        get_string('settings:realtime_heading_desc', 'local_ai_course_assistant')
     ));
 
     // Realtime enable.

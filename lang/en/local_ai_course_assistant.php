@@ -136,6 +136,8 @@ $string['coursesettings:enabled'] = 'Enable course overrides';
 $string['coursesettings:enabled_desc'] = 'When enabled, the settings below override the global AI provider configuration for this course only. Leave fields blank to inherit the global value.';
 $string['coursesettings:using_global'] = 'Using global setting';
 $string['coursesettings:saved'] = 'Course AI settings saved.';
+$string['coursesettings:override_hierarchy_title'] = 'How course overrides work';
+$string['coursesettings:override_hierarchy_desc'] = 'Global plugin settings are the default for every course. If "Enable course overrides" is off, this page has no effect. When it is on, any blank provider/model/API fields continue to inherit the global values. Conversation starter toggles and English Lock apply only to this course, while voice-related starters still depend on the required global TTS or Realtime settings being available.';
 $string['coursesettings:ell_pronunciation']        = 'Pronunciation Practice Mode';
 $string['coursesettings:ell_pronunciation_desc']   = 'Show the "Pronunciation Practice" chip for students in this course. Uses OpenAI Realtime API for phoneme-level pronunciation feedback. Requires Voice Mode to be enabled in global plugin settings.';
 $string['coursesettings:ell_pronunciation_enable'] = 'Enable Pronunciation Practice chip for this course';
@@ -276,7 +278,7 @@ $string['settings:whatsapp_blocked_countries_desc'] = 'Comma-separated ISO 3166-
 
 // RAG / Semantic Search settings.
 $string['settings:rag_heading'] = 'RAG / Semantic Search';
-$string['settings:rag_heading_desc'] = 'Retrieval-Augmented Generation: index course content as embeddings and retrieve only the most relevant chunks at query time. Reduces token usage and supports all content types. Requires an embedding API.';
+$string['settings:rag_heading_desc'] = 'Retrieval-Augmented Generation indexes course content as embeddings and sends only the most relevant chunks to the model at chat time. This reduces prompt size, speeds up responses, and keeps answers grounded in current course material across pages, books, files, and other Moodle content. Requires an embedding provider/API.';
 $string['settings:rag_enabled'] = 'Enable RAG (Semantic Search)';
 $string['settings:rag_enabled_desc'] = 'When enabled, the AI tutor uses semantic search to retrieve relevant course content for each query instead of stuffing all content into the system prompt.';
 $string['settings:embed_provider'] = 'Embedding Provider';
@@ -517,6 +519,7 @@ $string['settings:wellbeing_enabled_desc'] = 'When enabled, SOLA will detect sig
 
 // Voice mode settings.
 $string['settings:realtime_heading']      = 'Voice Mode (OpenAI Realtime)';
+$string['settings:realtime_heading_desc'] = 'Voice Mode enables real-time spoken conversations with SOLA and powers pronunciation coaching plus other voice-first experiences. Some voice starters only appear when the required TTS or Realtime configuration is available globally.';
 $string['settings:realtime_enabled']      = 'Enable Voice Mode';
 $string['settings:realtime_enabled_desc'] = 'Allows students to have real-time voice conversations with SOLA. Requires an OpenAI API key.';
 $string['settings:realtime_apikey']       = 'OpenAI API Key (Voice & TTS)';

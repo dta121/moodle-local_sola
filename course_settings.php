@@ -159,6 +159,10 @@ echo html_writer::div(
 );
 
 ?>
+<div class="alert alert-info">
+    <strong><?php echo get_string('coursesettings:override_hierarchy_title', 'local_ai_course_assistant'); ?></strong>
+    <div class="mt-2"><?php echo get_string('coursesettings:override_hierarchy_desc', 'local_ai_course_assistant'); ?></div>
+</div>
 <form method="post" action="<?php echo $pageurl->out(false); ?>">
     <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
 
