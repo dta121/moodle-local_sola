@@ -33,6 +33,8 @@ define([
     /** @type {HTMLElement} */
     let toggle = null;
     /** @type {HTMLElement} */
+    let closeToggle = null;
+    /** @type {HTMLElement} */
     let messagesContainer = null;
     /** @type {HTMLTextAreaElement} */
     let input = null;
@@ -69,6 +71,8 @@ define([
     let lastScrollTop = 0;
     /** True while a programmatic scrollTop assignment is in progress (suppresses user-scroll detection) */
     let programmaticScroll = false;
+    /** Resize observer for keeping the floating close toggle aligned with the drawer edge */
+    let drawerResizeObserver = null;
     /** Minimum pixel movement to count as a drag (suppresses subsequent click) */
     const DRAG_THRESHOLD = 8;
 
@@ -438,6 +442,7 @@ define([
         root = rootEl;
         drawer = root.querySelector('.local-ai-course-assistant__drawer');
         toggle = root.querySelector('#local-ai-course-assistant-toggle');
+        closeToggle = root.querySelector('#local-ai-course-assistant-close-toggle');
         messagesContainer = root.querySelector('.local-ai-course-assistant__messages');
 
         // Scroll-to-bottom arrow — appears when the user has scrolled up.
@@ -518,6 +523,7 @@ define([
                 if (isOpen()) {
                     updatePagePush(window.innerWidth > 600);
                 }
+                syncCloseTogglePosition();
             });
         }
         restoreExpandState();
@@ -525,12 +531,22 @@ define([
         initDrag();
         initResize();
         initMobileGestures();
+        if (window.ResizeObserver && drawer) {
+            drawerResizeObserver = new ResizeObserver(function() {
+                if (isOpen()) {
+                    updatePagePush(true);
+                }
+                syncCloseTogglePosition();
+            });
+            drawerResizeObserver.observe(drawer);
+        }
         // Avatar picker has been removed; clear any stored face-SVG prefs so
         // the preset <img> is always shown and the white fill shows through.
         try { localStorage.removeItem(AVATAR_KEY); } catch (e) { /**/ }
         initSVGAvatars();
         renderHistoryPanel([]);
         setBottomMode('chat');
+        syncCloseTogglePosition();
     };
 
     /**
@@ -1034,6 +1050,34 @@ define([
     };
 
     /**
+     * Keep the floating close tab aligned with the open drawer edge.
+     * Hidden outside desktop drawer mode.
+     */
+    const syncCloseTogglePosition = function() {
+        if (!closeToggle) {
+            return;
+        }
+
+        const showCloseToggle = !!(root &&
+            root.classList.contains('local-ai-course-assistant--drawer-mode') &&
+            isOpen() &&
+            window.innerWidth > 600 &&
+            drawer);
+
+        closeToggle.hidden = !showCloseToggle;
+        closeToggle.setAttribute('aria-hidden', showCloseToggle ? 'false' : 'true');
+        closeToggle.setAttribute('aria-expanded', showCloseToggle ? 'true' : 'false');
+
+        if (!showCloseToggle) {
+            closeToggle.style.right = '';
+            return;
+        }
+
+        const rightOffset = Math.max(0, drawer.offsetWidth || drawer.getBoundingClientRect().width || 400);
+        closeToggle.style.right = rightOffset + 'px';
+    };
+
+    /**
      * Toggle the drawer open/closed.
      *
      * @returns {boolean} True if drawer is now open
@@ -1054,11 +1098,15 @@ define([
             showStarters();
             // Push page content aside on desktop so drawer doesn't overlap.
             // Use requestAnimationFrame so the drawer has its final width before we read it.
-            requestAnimationFrame(function() { updatePagePush(true); });
+            requestAnimationFrame(function() {
+                updatePagePush(true);
+                syncCloseTogglePosition();
+            });
         } else {
             drawer.classList.remove('local-ai-course-assistant__drawer--open');
             if (root) { root.classList.remove('local-ai-course-assistant--open'); }
             updatePagePush(false);
+            syncCloseTogglePosition();
         }
 
         return opening;
@@ -1075,6 +1123,7 @@ define([
         drawer.classList.remove('local-ai-course-assistant__drawer--welcome');
         if (root) { root.classList.remove('local-ai-course-assistant--open'); }
         updatePagePush(false);
+        syncCloseTogglePosition();
         toggle.focus();
     };
 
@@ -1697,6 +1746,7 @@ define([
             root: root,
             drawer: drawer,
             toggle: toggle,
+            closeToggle: closeToggle,
             messagesContainer: messagesContainer,
             input: input,
             sendBtn: sendBtn,

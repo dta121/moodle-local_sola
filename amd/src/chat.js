@@ -993,6 +993,12 @@ define([
             UI.closeDrawer();
         });
 
+        if (els.closeToggle) {
+            els.closeToggle.addEventListener('click', function() {
+                UI.closeDrawer();
+            });
+        }
+
         // Send button.
         els.sendBtn.addEventListener('click', handleSend);
 
