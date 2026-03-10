@@ -108,6 +108,16 @@ if ($hassiteconfig) {
         PARAM_FLOAT
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_ai_course_assistant/max_tokens',
+        'Max Response Length (tokens)',
+        'Maximum number of tokens per AI response. Lower values produce shorter, faster responses. ' .
+            '512 = ~2-3 sentences, 1024 = ~1-2 paragraphs, 2048 = longer explanations. ' .
+            'Set to 0 for no limit (provider default).',
+        '1024',
+        PARAM_INT
+    ));
+
     // Max conversation history.
     $settings->add(new admin_setting_configtext(
         'local_ai_course_assistant/maxhistory',
@@ -168,7 +178,7 @@ if ($hassiteconfig) {
         'local_ai_course_assistant/rag_enabled',
         get_string('settings:rag_enabled', 'local_ai_course_assistant'),
         get_string('settings:rag_enabled_desc', 'local_ai_course_assistant'),
-        0
+        1
     ));
 
     // Embedding provider.

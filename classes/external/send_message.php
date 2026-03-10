@@ -90,10 +90,15 @@ class send_message extends external_api {
         // Build context and get history.
         $systemprompt = context_builder::build_system_prompt($params['courseid'], $userid, '', $retrievedchunks);
         $history = conversation_manager::get_history_for_api($conv->id);
+        $responseoptions = [];
+        $maxtokens = (int) get_config('local_ai_course_assistant', 'max_tokens');
+        if ($maxtokens > 0) {
+            $responseoptions['max_tokens'] = $maxtokens;
+        }
 
         // Get AI response.
         $provider = base_provider::create_from_config();
-        $response = $provider->chat_completion($systemprompt, $history);
+        $response = $provider->chat_completion($systemprompt, $history, $responseoptions);
 
         // Save assistant response.
         conversation_manager::add_message($conv->id, $userid, $params['courseid'], 'assistant', $response);
