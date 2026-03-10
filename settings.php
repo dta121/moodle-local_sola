@@ -706,7 +706,6 @@ if ($hassiteconfig) {
         'local_ai_course_assistant_whatsapptest',
         get_string('whatsapptest:title', 'local_ai_course_assistant'),
         $whatsapptesturl,
-        'moodle/site:config',
-        true
+        'moodle/site:config'
     ));
 }

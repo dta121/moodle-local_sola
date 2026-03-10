@@ -54,57 +54,57 @@ class admin_settings_helper {
             self::SECTION_RAG => [
                 'label' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_TOKEN_ANALYTICS => [
                 'label' => 'Token Analytics',
                 'visiblename' => 'Token Analytics',
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_UPDATES => [
                 'label' => get_string('settings:updates_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:updates_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'visiblename' => get_string('settings:updates_heading', 'local_ai_course_assistant') . ' Settings',
+                'hidden' => false,
             ],
             self::SECTION_INTEGRITY => [
                 'label' => get_string('settings:integrity_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:integrity_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'visiblename' => get_string('settings:integrity_heading', 'local_ai_course_assistant') . ' Settings',
+                'hidden' => false,
             ],
             self::SECTION_OFFTOPIC => [
                 'label' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_WELLBEING => [
                 'label' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_STUDYPLAN => [
                 'label' => get_string('settings:studyplan_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:studyplan_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_BRANDING => [
                 'label' => 'Branding',
                 'visiblename' => 'Branding',
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_FAQ => [
                 'label' => get_string('settings:faq_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:faq_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_VOICE => [
                 'label' => get_string('settings:realtime_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:realtime_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
             self::SECTION_DEBUGGING => [
                 'label' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
-                'hidden' => true,
+                'hidden' => false,
             ],
         ];
     }
