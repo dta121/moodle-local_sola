@@ -35,16 +35,264 @@ if ($hassiteconfig) {
         0
     ));
 
-    // Top save button (cloned from Moodle's bottom save button).
+    $settingtabs = [
+        ['id' => 'provider', 'label' => 'AI Provider & Conversation', 'startrow' => 'admin-provider'],
+        ['id' => 'rag', 'label' => 'RAG / Semantic Search', 'startrow' => 'admin-rag_enabled'],
+        ['id' => 'token-analytics', 'label' => 'Token Analytics', 'startrow' => 'admin-token_analytics_link'],
+        ['id' => 'plugin-updates', 'label' => 'Plugin Updates', 'startrow' => 'admin-github_token'],
+        ['id' => 'integrity-monitoring', 'label' => 'Integrity Monitoring', 'startrow' => 'admin-integrity_enabled'],
+        ['id' => 'offtopic-detection', 'label' => 'Off-topic Detection', 'startrow' => 'admin-offtopic_enabled'],
+        ['id' => 'wellbeing-safety', 'label' => 'Wellbeing & Safety', 'startrow' => 'admin-wellbeing_enabled'],
+        ['id' => 'study-planning', 'label' => 'Study Planning & Reminders', 'startrow' => 'admin-studyplan_enabled'],
+        ['id' => 'branding', 'label' => 'Branding', 'startrow' => 'admin-display_name'],
+        ['id' => 'faq-support', 'label' => 'FAQ & Support', 'startrow' => 'admin-faq_content'],
+        ['id' => 'voice-mode', 'label' => 'Voice Mode (OpenAI Realtime)', 'startrow' => 'admin-realtime_enabled'],
+        ['id' => 'debugging', 'label' => 'Debugging', 'startrow' => 'admin-context_debug_enabled'],
+    ];
+
+    $tabbuttons = '';
+    foreach ($settingtabs as $index => $settingtab) {
+        $tabbuttons .= html_writer::tag('button', s($settingtab['label']), [
+            'type' => 'button',
+            'id' => 'aica-settings-tab-' . $settingtab['id'],
+            'class' => 'aica-settings-tab' . ($index === 0 ? ' is-active' : ''),
+            'data-aica-tab' => $settingtab['id'],
+            'role' => 'tab',
+            'aria-selected' => $index === 0 ? 'true' : 'false',
+            'aria-controls' => 'aica-settings-panel-' . $settingtab['id'],
+            'tabindex' => $index === 0 ? '0' : '-1',
+        ]);
+    }
+
+    $tabconfigjson = json_encode($settingtabs, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+    $toptoolshtml = <<<HTML
+<style>
+#admin-top_save_btn .form-label {
+    display: none;
+}
+
+#admin-top_save_btn .form-setting {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+
+#admin-top_save_btn .form-shortname,
+#admin-top_save_btn .form-description {
+    display: none;
+}
+
+#aica-settings-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#aica-top-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+#aica-settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.aica-settings-tab {
+    appearance: none;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #173140;
+    cursor: pointer;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 0.55rem 0.9rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.aica-settings-tab:hover {
+    border-color: #173140;
+}
+
+.aica-settings-tab:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(23, 49, 64, 0.18);
+}
+
+.aica-settings-tab.is-active,
+.aica-settings-tab[aria-selected="true"] {
+    background: #173140;
+    border-color: #173140;
+    color: #ffffff;
+}
+
+.aica-settings-panel {
+    padding-top: 0.25rem;
+}
+
+.aica-settings-panel[hidden] {
+    display: none !important;
+}
+
+.aica-settings-panel > h3.main:first-child {
+    margin-top: 0;
+}
+</style>
+<div id="aica-settings-shell">
+    <div id="aica-top-save"></div>
+    <div id="aica-settings-tabs" role="tablist" aria-label="SOLA settings sections">
+        {$tabbuttons}
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var sections = {$tabconfigjson};
+    var storageKey = "local_ai_course_assistant_admin_tab";
+    var toolRow = document.getElementById("admin-top_save_btn");
+    var topSave = document.getElementById("aica-top-save");
+    var bottomButtons = document.querySelector(".form-buttons");
+    if (topSave && bottomButtons && !document.getElementById("aica-top-buttons")) {
+        var clonedButtons = bottomButtons.cloneNode(true);
+        clonedButtons.id = "aica-top-buttons";
+        topSave.appendChild(clonedButtons);
+    }
+    if (!toolRow) {
+        return;
+    }
+    var fieldset = toolRow.closest("fieldset");
+    var tabsRoot = document.getElementById("aica-settings-tabs");
+    if (!fieldset || !tabsRoot || fieldset.querySelector(".aica-settings-panel")) {
+        return;
+    }
+    var sectionBoundaries = sections.map(function(section) {
+        var startRow = document.getElementById(section.startrow);
+        if (!startRow || !fieldset.contains(startRow)) {
+            return null;
+        }
+        var heading = startRow.previousElementSibling;
+        while (heading && heading.parentElement === fieldset && !(heading.matches && heading.matches("h3.main"))) {
+            heading = heading.previousElementSibling;
+        }
+        if (!heading || !fieldset.contains(heading)) {
+            return null;
+        }
+        return {
+            id: section.id,
+            heading: heading
+        };
+    }).filter(function(section) {
+        return !!section;
+    });
+    if (!sectionBoundaries.length) {
+        return;
+    }
+    var marker = document.createElement("div");
+    fieldset.insertBefore(marker, sectionBoundaries[0].heading);
+    sectionBoundaries.forEach(function(section, index) {
+        var panel = document.createElement("section");
+        panel.className = "aica-settings-panel";
+        panel.id = "aica-settings-panel-" + section.id;
+        panel.dataset.aicaPanel = section.id;
+        panel.setAttribute("role", "tabpanel");
+        panel.setAttribute("aria-labelledby", "aica-settings-tab-" + section.id);
+        if (index !== 0) {
+            panel.hidden = true;
+        }
+        fieldset.insertBefore(panel, marker);
+        var nextHeading = index + 1 < sectionBoundaries.length ? sectionBoundaries[index + 1].heading : null;
+        var current = section.heading;
+        while (current && current !== nextHeading) {
+            var next = current.nextElementSibling;
+            panel.appendChild(current);
+            current = next;
+        }
+    });
+    marker.remove();
+    var availableIds = sectionBoundaries.map(function(section) {
+        return section.id;
+    });
+    Array.prototype.slice.call(tabsRoot.querySelectorAll(".aica-settings-tab")).forEach(function(button) {
+        if (availableIds.indexOf(button.getAttribute("data-aica-tab")) === -1) {
+            button.hidden = true;
+        }
+    });
+    var buttons = Array.prototype.slice.call(tabsRoot.querySelectorAll(".aica-settings-tab:not([hidden])"));
+    var panels = Array.prototype.slice.call(fieldset.querySelectorAll(".aica-settings-panel"));
+    var buttonIds = buttons.map(function(button) {
+        return button.getAttribute("data-aica-tab");
+    });
+    function activateTab(tabId, persist) {
+        if (buttonIds.indexOf(tabId) === -1) {
+            return;
+        }
+        buttons.forEach(function(button) {
+            var active = button.getAttribute("data-aica-tab") === tabId;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-selected", active ? "true" : "false");
+            button.setAttribute("tabindex", active ? "0" : "-1");
+        });
+        panels.forEach(function(panel) {
+            var active = panel.dataset.aicaPanel === tabId;
+            panel.hidden = !active;
+        });
+        if (persist) {
+            try {
+                window.localStorage.setItem(storageKey, tabId);
+            } catch (error) {
+            }
+        }
+    }
+    buttons.forEach(function(button, index) {
+        button.addEventListener("click", function() {
+            activateTab(button.getAttribute("data-aica-tab"), true);
+        });
+        button.addEventListener("keydown", function(event) {
+            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+                return;
+            }
+            event.preventDefault();
+            var nextIndex = event.key === "ArrowRight"
+                ? (index + 1) % buttons.length
+                : (index - 1 + buttons.length) % buttons.length;
+            buttons[nextIndex].focus();
+            activateTab(buttons[nextIndex].getAttribute("data-aica-tab"), true);
+        });
+    });
+    var activeTab = null;
+    panels.some(function(panel) {
+        if (panel.querySelector(".error")) {
+            activeTab = panel.dataset.aicaPanel;
+            return true;
+        }
+        return false;
+    });
+    if (!activeTab) {
+        try {
+            activeTab = window.localStorage.getItem(storageKey);
+        } catch (error) {
+            activeTab = null;
+        }
+    }
+    if (!activeTab || buttonIds.indexOf(activeTab) === -1) {
+        activeTab = buttonIds.length ? buttonIds[0] : null;
+    }
+    if (activeTab) {
+        activateTab(activeTab, false);
+    }
+});
+</script>
+HTML;
+
+    // Top save button and tabbed settings shell.
     $settings->add(new admin_setting_description(
         'local_ai_course_assistant/top_save_btn',
         '',
-        '<div id="aica-top-save" style="margin-bottom:1rem;"></div>' .
-        '<script>document.addEventListener("DOMContentLoaded",function(){' .
-        'var b=document.querySelector(".form-buttons");if(!b)return;' .
-        'var c=b.cloneNode(true);c.id="aica-top-buttons";' .
-        'document.getElementById("aica-top-save").appendChild(c);' .
-        '});</script>'
+        $toptoolshtml
     ));
 
     $settings->add(new admin_setting_heading(
