@@ -158,6 +158,16 @@ echo html_writer::div(
 <form method="post" action="<?php echo $pageurl->out(false); ?>">
     <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
 
+    <div class="mb-3">
+        <button type="submit" class="btn btn-primary">
+            <?php echo get_string('savechanges'); ?>
+        </button>
+        <a href="<?php echo (new moodle_url('/course/view.php', ['id' => $courseid]))->out(false); ?>"
+           class="btn btn-secondary ml-2">
+            <?php echo get_string('cancel'); ?>
+        </a>
+    </div>
+
     <div class="card mb-3">
         <div class="card-header">
             <h5 class="mb-0"><?php echo get_string('coursesettings:title', 'local_ai_course_assistant'); ?></h5>

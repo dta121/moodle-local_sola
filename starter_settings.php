@@ -318,20 +318,6 @@ echo $OUTPUT->header();
 <div class="aica-starters-admin">
     <p><?php echo get_string('starters:admin_desc', 'local_ai_course_assistant'); ?></p>
 
-    <div class="card mb-3 aica-admin-help">
-        <div class="card-body">
-            <h6 style="cursor:pointer;margin:0;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent=this.nextElementSibling.style.display==='none'?'[+]':'[-]';">
-                <span>[+]</span> How to use this page
-            </h6>
-            <div style="display:none;margin-top:12px;font-size:14px;line-height:1.6;">
-                <p><strong>Built-in starters</strong> stay in the system. You can reorder them, enable or disable them, change their icon, and edit their prompt copy where that makes sense, but you cannot delete them.</p>
-                <p><strong>Custom starters</strong> are prompt-based chips you create. You can set the visible name, description, icon, prompt, and optional visibility condition.</p>
-                <p><strong>Prompt placeholders:</strong> use <code>{page}</code> to insert the current page title automatically when a student clicks the chip.</p>
-                <p><strong>Per-course overrides:</strong> after saving changes here, use each course settings page to show or hide individual starters for that course.</p>
-            </div>
-        </div>
-    </div>
-
     <div class="aica-admin-actions mb-3">
         <form method="post" style="display:inline;">
             <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
@@ -352,6 +338,20 @@ echo $OUTPUT->header();
         <a href="<?php echo $adminsettingsurl->out(false); ?>" class="btn btn-outline-secondary">
             <?php echo get_string('starters:back_settings', 'local_ai_course_assistant'); ?>
         </a>
+    </div>
+
+    <div class="card mb-3 aica-admin-help">
+        <div class="card-body">
+            <h6 style="cursor:pointer;margin:0;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent=this.nextElementSibling.style.display==='none'?'[+]':'[-]';">
+                <span>[+]</span> How to use this page
+            </h6>
+            <div style="display:none;margin-top:12px;font-size:14px;line-height:1.6;">
+                <p><strong>Built-in starters</strong> stay in the system. You can reorder them, enable or disable them, change their icon, and edit their prompt copy where that makes sense, but you cannot delete them.</p>
+                <p><strong>Custom starters</strong> are prompt-based chips you create. You can set the visible name, description, icon, prompt, and optional visibility condition.</p>
+                <p><strong>Prompt placeholders:</strong> use <code>{page}</code> to insert the current page title automatically when a student clicks the chip.</p>
+                <p><strong>Per-course overrides:</strong> after saving changes here, use each course settings page to show or hide individual starters for that course.</p>
+            </div>
+        </div>
     </div>
 
     <div id="aica-starters-list"></div>
