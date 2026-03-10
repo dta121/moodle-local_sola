@@ -86,6 +86,96 @@ define([
     let conversationHistory = [];
     /** @type {boolean} Whether a history refresh request is in flight */
     let historyRefreshPending = false;
+    /** @type {RegExp} SOLA follow-up marker parser */
+    const NEXT_BLOCK_RE = /\n*\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/;
+    /** @type {RegExp} Source attribution tag parser */
+    const SOURCE_TAG_RE = /\n*\[SOURCE:(page|course|general)\]/;
+    /** @type {Object<string, string>} */
+    const SOURCE_LABELS = {
+        page: 'From: Current Page',
+        course: 'From: Course Materials',
+        general: 'General Knowledge',
+    };
+
+    /**
+     * Parse SOLA metadata markers from an assistant response.
+     *
+     * @param {string} text
+     * @returns {{text:string,suggestions:Array<string>,sourceType:string|null}}
+     */
+    const parseAssistantDecorators = function(text) {
+        let cleanText = ((text || '') + '');
+        let suggestions = [];
+        let sourceType = null;
+
+        const nextMatch = cleanText.match(NEXT_BLOCK_RE);
+        if (nextMatch) {
+            suggestions = nextMatch[1].split('||').map(function(s) {
+                return s.trim();
+            }).filter(Boolean).slice(0, 4);
+            cleanText = cleanText.replace(NEXT_BLOCK_RE, '').trimEnd();
+        }
+
+        const sourceMatch = cleanText.match(SOURCE_TAG_RE);
+        if (sourceMatch) {
+            sourceType = sourceMatch[1];
+            cleanText = cleanText.replace(SOURCE_TAG_RE, '').trimEnd();
+        }
+
+        return {
+            text: cleanText,
+            suggestions: suggestions,
+            sourceType: sourceType,
+        };
+    };
+
+    /**
+     * Sanitize message text before it is stored in the compact History tab.
+     *
+     * @param {string} role
+     * @param {string} text
+     * @returns {string}
+     */
+    const getHistorySafeText = function(role, text) {
+        if (role === 'assistant') {
+            return parseAssistantDecorators(text).text.trim();
+        }
+        return ((text || '') + '').trim();
+    };
+
+    /**
+     * Get the latest assistant bubble in the visible transcript.
+     *
+     * @returns {HTMLElement|null}
+     */
+    const getLastAssistantMessageEl = function() {
+        const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        if (!root) {
+            return null;
+        }
+        const bubbles = root.querySelectorAll('.local-ai-course-assistant__message--assistant');
+        return bubbles.length ? bubbles[bubbles.length - 1] : null;
+    };
+
+    /**
+     * Append a source attribution pill below an assistant bubble.
+     *
+     * @param {HTMLElement|null} msgEl
+     * @param {string|null} sourceType
+     */
+    const appendSourcePill = function(msgEl, sourceType) {
+        if (!msgEl || !sourceType || !SOURCE_LABELS[sourceType]) {
+            return;
+        }
+        const existing = msgEl.querySelector('.aica-source-pill');
+        if (existing) {
+            existing.remove();
+        }
+        const pill = document.createElement('span');
+        pill.className = 'aica-source-pill aica-source-pill--' + sourceType;
+        pill.textContent = SOURCE_LABELS[sourceType];
+        msgEl.appendChild(pill);
+    };
 
     /**
      * Get the visible page heading for debug purposes.
@@ -298,9 +388,11 @@ define([
      */
     const setConversationHistory = function(messages) {
         conversationHistory = (messages || []).map(function(msg) {
+            const role = msg.role || 'assistant';
+            const rawText = (msg.text !== undefined ? msg.text : msg.message) || '';
             return {
-                role: msg.role || 'assistant',
-                text: (msg.text !== undefined ? msg.text : msg.message) || '',
+                role: role,
+                text: getHistorySafeText(role, rawText),
                 timestamp: normalizeTimestamp(msg.timestamp !== undefined ? msg.timestamp : msg.timecreated),
             };
         }).filter(function(msg) {
@@ -317,9 +409,7 @@ define([
      * @param {number|string|null} ts
      */
     const recordConversationMessage = function(role, text, ts) {
-        const cleanText = ((text || '') + '')
-            .replace(/\n*\[SOLA_NEXT\][\s\S]*?\[\/SOLA_NEXT\]/g, '')
-            .trim();
+        const cleanText = getHistorySafeText(role, text);
         if (!cleanText) {
             return;
         }
@@ -2089,16 +2179,25 @@ define([
      *
      * @param {string}      text  Message text
      * @param {number|null} ts    Optional Unix timestamp (ms)
-     * @param {{skipHistory?:boolean}=} options
+     * @param {{skipHistory?:boolean,sourceType?:string|null,alreadyClean?:boolean}=} options
      * @returns {HTMLElement}
      */
     const addAssistantMsg = function(text, ts, options) {
         options = options || {};
+        const parsed = options.alreadyClean ? {
+            text: (text || '') + '',
+            suggestions: [],
+            sourceType: options.sourceType || null,
+        } : parseAssistantDecorators(text);
+        const displayText = parsed.text;
+        const sourceType = options.sourceType || parsed.sourceType;
         if (!options.skipHistory) {
-            recordConversationMessage('assistant', text, ts || Date.now());
+            recordConversationMessage('assistant', displayText, ts || Date.now());
         }
         const fn = (getTtsUrl() || Speech.isTTSSupported()) ? handleSpeak : null;
-        return UI.addMessage('assistant', text, fn, ts || null);
+        const el = UI.addMessage('assistant', displayText, fn, ts || null);
+        appendSourcePill(el, sourceType);
+        return el;
     };
 
     /**
@@ -2967,7 +3066,6 @@ define([
         Repo.getHistory(courseId).then(function(result) {
             setConversationHistory(result && result.messages ? result.messages : []);
             if (result.messages && result.messages.length > 0) {
-                const NEXT_RE = /\n*\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/;
                 let lastSuggestions = [];
                 let prevDateKey = null;
                 const today = new Date();
@@ -2997,18 +3095,14 @@ define([
 
                     let text = msg.message;
                     if (msg.role === 'assistant') {
-                        const match = text.match(NEXT_RE);
-                        if (match) {
-                            lastSuggestions = match[1].split('||')
-                                .map(function(s) { return s.trim(); })
-                                .filter(Boolean).slice(0, 4);
-                            text = text.replace(NEXT_RE, '').trimEnd();
-                        } else {
-                            lastSuggestions = [];
-                        }
-                    }
-                    if (msg.role === 'assistant') {
-                        addAssistantMsg(text, msg.timecreated ? msg.timecreated * 1000 : null, {skipHistory: true});
+                        const parsed = parseAssistantDecorators(text);
+                        text = parsed.text;
+                        lastSuggestions = parsed.suggestions;
+                        addAssistantMsg(text, msg.timecreated ? msg.timecreated * 1000 : null, {
+                            skipHistory: true,
+                            sourceType: parsed.sourceType,
+                            alreadyClean: true,
+                        });
                     } else {
                         addUserMsg(text, msg.timecreated ? msg.timecreated * 1000 : null, {skipHistory: true});
                     }
@@ -3175,22 +3269,15 @@ define([
             onDone: function() {
                 UI.showTyping(false);
                 if (fullText) {
-                    const NEXT_RE = /\n*\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/;
-                    const match = fullText.match(NEXT_RE);
-                    let suggestions = [];
-                    let displayText = fullText;
-                    if (match) {
-                        suggestions = match[1].split('||').map(function(s) { return s.trim(); })
-                            .filter(Boolean).slice(0, 4);
-                        displayText = fullText.replace(NEXT_RE, '').trimEnd();
-                    }
-                    UI.finishStreaming(displayText, (getTtsUrl() || Speech.isTTSSupported()) ? handleSpeak : null);
-                    recordConversationMessage('assistant', displayText, Date.now());
-                    if (suggestions.length) {
-                        UI.showSuggestions(suggestions, handleSuggestionClick);
-                    } else if (fullText.trim().length > 0) {
+                    const parsed = parseAssistantDecorators(fullText);
+                    UI.finishStreaming(parsed.text, (getTtsUrl() || Speech.isTTSSupported()) ? handleSpeak : null);
+                    appendSourcePill(getLastAssistantMessageEl(), parsed.sourceType);
+                    recordConversationMessage('assistant', parsed.text, Date.now());
+                    if (parsed.suggestions.length) {
+                        UI.showSuggestions(parsed.suggestions, handleSuggestionClick);
+                    } else if (parsed.text.trim().length > 0) {
                         // Smart fallback chips: comprehension-focused for long responses.
-                        const wordCount = displayText.trim().split(/\s+/).length;
+                        const wordCount = parsed.text.trim().split(/\s+/).length;
                         const chips = wordCount > 120
                             ? ['Quiz me on this', 'Summarize this', 'Give me an example']
                             : ['Tell me more', 'Give me an example', 'Quiz me on this'];
@@ -3215,8 +3302,10 @@ define([
             onError: function(errorMsg) {
                 UI.showTyping(false);
                 if (fullText) {
-                    UI.finishStreaming(fullText);
-                    recordConversationMessage('assistant', fullText, Date.now());
+                    const parsed = parseAssistantDecorators(fullText);
+                    UI.finishStreaming(parsed.text);
+                    appendSourcePill(getLastAssistantMessageEl(), parsed.sourceType);
+                    recordConversationMessage('assistant', parsed.text, Date.now());
                 }
                 window.console && console.error('[SOLA]', errorMsg); // eslint-disable-line no-console
                 // Show error as assistant message.

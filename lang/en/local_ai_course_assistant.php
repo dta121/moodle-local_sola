@@ -202,6 +202,16 @@ $string['chat:offtopic_locked'] = 'Your AI tutor access is temporarily suspended
 $string['chat:escalated_to_support'] = 'I was unable to fully answer your question, so I\'ve created a support ticket for you. A support team member will follow up. Your ticket reference is: {$a}';
 $string['chat:studyplan_intro'] = 'I can help you create a study plan for this course! Just tell me how many hours per week you can dedicate to studying, and I\'ll help you build a structured plan.';
 
+// Mobile app strings.
+$string['mobile_welcome'] = 'Hi, {$a}!';
+$string['mobile_welcome_sub'] = 'I\'m SOLA, your learning assistant. How can I help you today?';
+$string['mobile_placeholder'] = 'Ask a question...';
+$string['mobile_clear'] = 'Clear history';
+$string['mobile_disabled'] = 'SOLA is not available for this course.';
+$string['mobile_chip_concepts'] = 'Key Concepts';
+$string['mobile_chip_studyplan'] = 'Study Plan';
+$string['mobile_chip_quiz'] = 'Quiz Me';
+
 // FAQ & Support settings.
 $string['settings:faq_heading'] = 'FAQ & Support';
 $string['settings:faq_heading_desc'] = 'Configure the centralized FAQ and Zendesk support ticket integration.';

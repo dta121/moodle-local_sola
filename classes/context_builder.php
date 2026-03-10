@@ -173,6 +173,9 @@ class context_builder {
         // Append AI literacy instructions.
         $prompt .= self::get_ai_literacy_instructions();
 
+        // Append source attribution instructions for the chat UI.
+        $prompt .= self::get_source_attribution_instructions();
+
         // Append next-steps suggestion instructions.
         $prompt .= self::get_next_steps_instructions();
 
@@ -199,27 +202,7 @@ class context_builder {
         }
 
         // Append current-page context AFTER caching — it is per-request, not per-course.
-        $currentpagecontext = '';
-        $pagecontent = '';
-        if ($pageid > 0) {
-            $pagecontent = trim(self::get_module_content($pageid));
-        }
-        if (!empty($pagetitle) || !empty($pagecontent)) {
-            $currentpagecontext = "\n\n## Current Page";
-            if (!empty($pagetitle)) {
-                $currentpagecontext .= "\n"
-                    . "The student is currently viewing the resource or activity titled: \"{$pagetitle}\". "
-                    . "If the student refers to \"this page\", \"this book\", \"this chapter\", "
-                    . "\"this activity\", or asks for the title of what they are currently viewing, "
-                    . "assume they mean this item unless they clearly name a different one. "
-                    . "Tailor your explanations and examples to this specific page or topic when relevant.";
-            }
-            if (!empty($pagecontent)) {
-                $currentpagecontext .= "\n\n### Current Page Content Excerpt\n"
-                    . $pagecontent
-                    . "\n\nUse this current-page excerpt as the highest-priority context when the student is asking about what is on this page right now.";
-            }
-        }
+        $currentpagecontext = self::build_current_page_context($pageid, $pagetitle);
 
         if (!empty($currentpagecontext)) {
             $maxbasechars = max(4000, self::MAX_PROMPT_LENGTH - strlen($currentpagecontext));
@@ -367,12 +350,20 @@ class context_builder {
      * Used by quiz generation to focus on the student's current page/resource.
      *
      * @param int $cmid Course module ID
+     * @param string|int $pageheading Page heading/chapter title, or a legacy maxchars value.
+     * @param int $maxchars Maximum characters to return.
      * @return string Extracted text, or empty string if unavailable/unsupported.
      */
-    public static function get_module_content(int $cmid, string $pageheading = ''): string {
+    public static function get_module_content(int $cmid, string|int $pageheading = '', int $maxchars = 6000): string {
         global $DB;
 
-        $maxchars = 6000;
+        if (is_int($pageheading)) {
+            $maxchars = $pageheading;
+            $pageheading = '';
+        }
+
+        $pageheading = trim((string)$pageheading);
+        $maxchars = max(500, $maxchars);
 
         try {
             $cmrec  = $DB->get_record('course_modules', ['id' => $cmid], 'id,course,module,instance', MUST_EXIST);
@@ -417,12 +408,13 @@ class context_builder {
                     }
 
                     $parts = [];
+                    $perchapter = ($maxchars > 6000) ? 2400 : 1200;
                     foreach ($chapters as $ch) {
                         $text = strip_tags(format_text($ch->content, $ch->contentformat));
                         $text = preg_replace('/\s+/', ' ', trim($text));
                         if (strlen($text) > 50) {
                             $heading = !empty($ch->title) ? "{$ch->title}: " : '';
-                            $parts[] = $heading . substr($text, 0, 1200);
+                            $parts[] = $heading . substr($text, 0, $perchapter);
                         }
                     }
                     if ($parts) {
@@ -449,6 +441,7 @@ class context_builder {
      * @param string $pageheading
      * @param string $clienttitle
      * @param string $modname
+     * @param int $maxchars
      * @return string
      */
     public static function append_current_page_context(
@@ -457,9 +450,17 @@ class context_builder {
         string $pagetitle = '',
         string $pageheading = '',
         string $clienttitle = '',
-        string $modname = ''
+        string $modname = '',
+        int $maxchars = 6000
     ): string {
-        $currentpagecontext = self::build_current_page_context($pageid, $pagetitle, $pageheading, $clienttitle, $modname);
+        $currentpagecontext = self::build_current_page_context(
+            $pageid,
+            $pagetitle,
+            $pageheading,
+            $clienttitle,
+            $modname,
+            $maxchars
+        );
         if ($currentpagecontext === '') {
             return self::truncate_prompt($prompt, self::MAX_PROMPT_LENGTH);
         }
@@ -481,6 +482,7 @@ class context_builder {
      * @param string $pageheading
      * @param string $clienttitle
      * @param string $modname
+     * @param int $maxchars
      * @return string
      */
     private static function build_current_page_context(
@@ -488,13 +490,14 @@ class context_builder {
         string $pagetitle = '',
         string $pageheading = '',
         string $clienttitle = '',
-        string $modname = ''
+        string $modname = '',
+        int $maxchars = 6000
     ): string {
         $pagetitle = trim($pagetitle);
         $pageheading = trim($pageheading);
         $clienttitle = trim($clienttitle);
         $modname = trim($modname);
-        $pagecontent = $pageid > 0 ? trim(self::get_module_content($pageid, $pageheading)) : '';
+        $pagecontent = $pageid > 0 ? trim(self::get_module_content($pageid, $pageheading, $maxchars)) : '';
 
         if ($pagetitle === '' && $pageheading === '' && $clienttitle === '' && $pagecontent === '') {
             return '';
@@ -518,9 +521,13 @@ class context_builder {
 
         $context = "\n\n## Current Page\n" . implode(' ', $lines);
         if ($pagecontent !== '') {
-            $context .= "\n\n### Current Page Content Excerpt\n"
+            $heading = ($maxchars > 6000) ? '### Current Page Content' : '### Current Page Content Excerpt';
+            $guidance = ($maxchars > 6000)
+                ? 'Use this current-page content as the highest-priority context for questions about the current page.'
+                : 'Use this current-page excerpt as the highest-priority context for questions about the current page.';
+            $context .= "\n\n{$heading}\n"
                 . $pagecontent
-                . "\n\nUse this current-page excerpt as the highest-priority context for questions about the current page.";
+                . "\n\n{$guidance}";
         }
 
         return $context;
@@ -841,6 +848,21 @@ class context_builder {
             . "5. Celebrate any partial understanding: \"You've actually got the first part right — let's build from there.\"\n"
             . "6. Never say \"it's easy\" or \"it's simple\" — this invalidates their struggle.\n"
             . "7. If they seem overwhelmed, suggest focusing on just one small piece rather than everything at once.";
+    }
+
+    /**
+     * Get source attribution instructions for widget replies.
+     *
+     * @return string
+     */
+    private static function get_source_attribution_instructions(): string {
+        return "\n\n## Source Attribution\n"
+            . "After your response (but BEFORE the [SOLA_NEXT] block), indicate the primary source "
+            . "of your answer on its own line using exactly one of these tags:\n"
+            . "[SOURCE:page] - your answer is primarily based on the current page content\n"
+            . "[SOURCE:course] - your answer draws from other course materials (not the current page)\n"
+            . "[SOURCE:general] - your answer uses general knowledge not found in the course materials\n\n"
+            . "Always include exactly one [SOURCE:xxx] tag. Place it on its own line just before [SOLA_NEXT].";
     }
 
     /**

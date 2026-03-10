@@ -31,6 +31,7 @@ $functions = [
         'type' => 'write',
         'ajax' => true,
         'capabilities' => 'local/ai_course_assistant:use',
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
     'local_ai_course_assistant_get_history' => [
         'classname' => \local_ai_course_assistant\external\get_history::class,
@@ -38,6 +39,7 @@ $functions = [
         'type' => 'read',
         'ajax' => true,
         'capabilities' => 'local/ai_course_assistant:use',
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
     'local_ai_course_assistant_clear_history' => [
         'classname' => \local_ai_course_assistant\external\clear_history::class,
@@ -45,6 +47,7 @@ $functions = [
         'type' => 'write',
         'ajax' => true,
         'capabilities' => 'local/ai_course_assistant:use',
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
     'local_ai_course_assistant_get_config' => [
         'classname' => \local_ai_course_assistant\external\get_config::class,
@@ -52,6 +55,7 @@ $functions = [
         'type' => 'read',
         'ajax' => true,
         'capabilities' => 'local/ai_course_assistant:use',
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
     'local_ai_course_assistant_update_study_plan' => [
         'classname' => \local_ai_course_assistant\external\update_study_plan::class,

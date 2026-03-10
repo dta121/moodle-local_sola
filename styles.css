@@ -432,6 +432,34 @@
     text-decoration: underline;
 }
 
+/* Source attribution pill shown beneath assistant replies */
+.aica-source-pill {
+    display: inline-flex;
+    align-self: flex-start;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-top: 6px;
+    margin-left: 4px;
+}
+
+.aica-source-pill--page {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.aica-source-pill--course {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.aica-source-pill--general {
+    background: #fff3e0;
+    color: #e65100;
+}
+
 /* Typing indicator */
 .local-ai-course-assistant__typing {
     display: none;

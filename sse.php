@@ -271,13 +271,15 @@ try {
         }
     }
 
+    // Replace the lightweight page marker with a fuller current-page excerpt when available.
     $systemprompt = context_builder::append_current_page_context(
         $systemprompt,
         $pageid,
         $pagetitle,
         $pageheading,
         $clienttitle,
-        $clientmodname
+        $clientmodname,
+        12000
     );
 
     if ($contextdebugactive) {
