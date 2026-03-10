@@ -320,6 +320,9 @@ define(['local_ai_course_assistant/sse_client'], function(SSE) {
                 startMediaRecording();
             } else if (recognition) {
                 try { recognition.start(); } catch (e) { /**/ }
+            } else {
+                // First restart after greeting playback needs a fresh recognition instance.
+                startRecognition();
             }
         }, 50); // was 300ms — reduced for snappier turn-around
     };
@@ -737,6 +740,13 @@ define(['local_ai_course_assistant/sse_client'], function(SSE) {
         recognition.onerror = function(event) {
             // Ignore non-fatal errors.
             if (event.error === 'no-speech' || event.error === 'aborted') {
+                return;
+            }
+            if (event.error === 'not-allowed') {
+                if (onErrorCb) {
+                    onErrorCb('Microphone access denied. Please allow microphone access in your browser settings and try again.');
+                }
+                disconnect();
                 return;
             }
             if (onErrorCb) {

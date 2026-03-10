@@ -34,10 +34,8 @@ define([], function() {
         '("You might say: \'...\'"), offer pronunciation tips when speech sounds unclear. ' +
         'For pronunciation practice, speak a target phrase clearly, then listen to the learner repeat it ' +
         'and give specific encouraging feedback. ' +
-        'After each response, append exactly one line: [SOLA_NEXT]chip1||chip2||chip3[/SOLA_NEXT] ' +
-        'where each chip is a short suggestion the learner might say or practice next ' +
-        '(e.g. a word to pronounce, a conversation topic, or a follow-up question). ' +
-        'Never read the [SOLA_NEXT] tag aloud.';
+        'Do NOT include any markup, tags, or bracketed instructions in your responses. ' +
+        'Keep your output as natural spoken language only.';
 
     /** @type {WebSocket|null} */
     var ws = null;
@@ -63,10 +61,12 @@ define([], function() {
     var onErrorCb = null;
     /** @type {Function|null} Suggestions callback — receives array of chip strings */
     var onSuggestionsCb = null;
-    /** @type {string} Accumulated assistant transcript for SOLA_NEXT parsing */
+    /** @type {string} Accumulated assistant transcript for UI display cleanup */
     var assistantTranscript = '';
     /** @type {number} How many chars of assistantTranscript have been emitted to display */
     var transcriptEmitted = 0;
+    /** @type {string} Suggestion preset for the active Realtime session */
+    var suggestionPreset = '';
     /** @type {HTMLElement|null} Overlay root for CSS custom property */
     var overlayRoot = null;
     /** @type {number|null} Animation frame ID */
@@ -171,6 +171,37 @@ define([], function() {
             return err.message;
         }
         return 'Microphone access failed.';
+    };
+
+    /**
+     * Find the safe transcript cutoff before any stray structured tag output.
+     *
+     * @param {string} text
+     * @returns {number}
+     */
+    var getTranscriptVisibleEnd = function(text) {
+        var cleanEnd = text.length;
+        ['[SOLA_', '[SOURCE'].forEach(function(tagStart) {
+            var idx = text.indexOf(tagStart);
+            if (idx !== -1 && idx < cleanEnd) {
+                cleanEnd = idx;
+            }
+        });
+
+        if (cleanEnd !== text.length) {
+            return cleanEnd;
+        }
+
+        var holdBack = 0;
+        ['[SOLA_', '[SOURCE'].forEach(function(tagStart) {
+            for (var pfx = 1; pfx <= tagStart.length && pfx <= text.length; pfx++) {
+                if (text.slice(-pfx) === tagStart.slice(0, pfx) && pfx > holdBack) {
+                    holdBack = pfx;
+                }
+            }
+        });
+
+        return text.length - holdBack;
     };
 
     /**
@@ -436,24 +467,7 @@ define([], function() {
             case 'response.output_audio_transcript.delta':
                 if (msg.delta) {
                     assistantTranscript += msg.delta;
-                    // Strip [SOLA_NEXT] tags from displayed transcript.
-                    // Also hold back any partial tag prefix at the end (e.g. "[SOLA_NEXT"
-                    // without closing "]") so it doesn't leak into the visible transcript.
-                    var solaIdx = assistantTranscript.indexOf('[SOLA_NEXT]');
-                    var visibleEnd;
-                    if (solaIdx !== -1) {
-                        visibleEnd = solaIdx;
-                    } else {
-                        // Check for partial tag prefix at the end of the transcript.
-                        var solaTag = '[SOLA_NEXT]';
-                        var holdBack = 0;
-                        for (var pfx = 1; pfx <= solaTag.length && pfx <= assistantTranscript.length; pfx++) {
-                            if (assistantTranscript.slice(-pfx) === solaTag.slice(0, pfx)) {
-                                holdBack = pfx;
-                            }
-                        }
-                        visibleEnd = assistantTranscript.length - holdBack;
-                    }
+                    var visibleEnd = getTranscriptVisibleEnd(assistantTranscript);
                     if (visibleEnd > transcriptEmitted && onTranscriptCb) {
                         onTranscriptCb('assistant', assistantTranscript.slice(transcriptEmitted, visibleEnd));
                     }
@@ -472,16 +486,13 @@ define([], function() {
                 break;
 
             case 'response.done':
-                // Parse SOLA_NEXT suggestions from accumulated transcript.
-                if (onSuggestionsCb && assistantTranscript) {
-                    var nextMatch = assistantTranscript.match(/\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/);
-                    if (nextMatch) {
-                        var chips = nextMatch[1].split('||').map(function(s) { return s.trim(); })
-                            .filter(function(s) { return s.length > 0; });
-                        if (chips.length) {
-                            onSuggestionsCb(chips);
-                        }
-                    }
+                if (suggestionPreset === 'ell' && onSuggestionsCb) {
+                    onSuggestionsCb([
+                        'Try another phrase',
+                        'Correct my grammar',
+                        'Speak more slowly',
+                        'End practice',
+                    ]);
                 }
                 assistantTranscript = '';
                 transcriptEmitted = 0;
@@ -519,6 +530,7 @@ define([], function() {
         onSuggestionsCb = callbacks.onSuggestions  || null;
         assistantTranscript = '';
         transcriptEmitted = 0;
+        suggestionPreset = (instructions && instructions.indexOf('[ELL Coaching Mode]') !== -1) ? 'ell' : '';
         overlayRoot     = overlayEl               || null;
         micStreamIn     = micStreamParam          || null;
 
@@ -710,6 +722,9 @@ define([], function() {
         }
 
         audioChunks = [];
+        assistantTranscript = '';
+        transcriptEmitted = 0;
+        suggestionPreset = '';
         setState('disconnected');
     };
 

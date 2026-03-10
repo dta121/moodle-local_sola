@@ -1602,6 +1602,10 @@ define([
                         onSuggestions: function(nextChips) {
                             UI.showSuggestions(nextChips, function(text) {
                                 UI.clearSuggestions();
+                                if (text === 'End practice') {
+                                    endSession();
+                                    return;
+                                }
                                 Realtime.sendText(text);
                             });
                         },
@@ -1810,7 +1814,7 @@ define([
                     instructions += '\n\nThe student wants to practice pronouncing: "' + phrase +
                         '". Start by saying this phrase clearly, then ask them to repeat it.';
                 }
-                instructions += ' Base your SOLA_NEXT suggestions on the current page and nearby course content when possible.';
+                instructions += ' Base your pronunciation feedback and examples on the current page and nearby course content when possible.';
                 return instructions;
             },
         });
