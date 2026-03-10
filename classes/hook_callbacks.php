@@ -203,29 +203,20 @@ class hook_callbacks {
         // Voice mode availability.
         $realtimeenabled = (bool)get_config('local_ai_course_assistant', 'realtime_enabled');
 
-        // ELL Pronunciation chip: requires realtime enabled globally + per-course opt-in.
-        $ellpronunciationenabled = $realtimeenabled &&
-            (bool)get_config('local_ai_course_assistant', 'ell_pronunciation_course_' . $courseid);
+        // Pronunciation availability is now gated globally; per-course visibility is handled
+        // by the conversation starter configuration.
+        $ellpronunciationenabled = $realtimeenabled;
 
-        // TTS proxy URL: available when an OpenAI key is present (realtime or main provider)
-        // AND the per-course Speaking Practice toggle is not explicitly disabled.
+        // TTS proxy URL: available when an OpenAI key is present (realtime or main provider).
         $realtimeapikey = get_config('local_ai_course_assistant', 'realtime_apikey');
         $provider       = get_config('local_ai_course_assistant', 'provider');
         $mainapikey     = get_config('local_ai_course_assistant', 'apikey');
         $hasttskey = !empty($realtimeapikey) || ($provider === 'openai' && !empty($mainapikey));
-        $speakingpracticeraw = get_config('local_ai_course_assistant', 'speaking_practice_course_' . $courseid);
-        // Default to enabled if never set (preserves existing behaviour for courses without the toggle).
-        $speakingpracticeenabled = ($speakingpracticeraw === false) || (bool)$speakingpracticeraw;
-        $ttsurl = ($hasttskey && $speakingpracticeenabled)
+        $ttsurl = $hasttskey
             ? (new \moodle_url('/local/ai_course_assistant/tts.php'))->out(false)
             : '';
 
         $starters = starter_manager::get_effective_starters($courseid, !empty($ttsurl), $realtimeenabled);
-        if (!$ellpronunciationenabled) {
-            $starters = array_values(array_filter($starters, function(array $starter): bool {
-                return (string)($starter['key'] ?? '') !== 'ell-pronunciation';
-            }));
-        }
 
         // Calculate course completion percentage.
         $completionpct = 0;
