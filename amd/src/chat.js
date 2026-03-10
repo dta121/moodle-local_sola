@@ -1498,6 +1498,51 @@ define([
     };
 
     /**
+     * Extract the raw discussion topic from a speaking suggestion chip.
+     *
+     * @param {string} label
+     * @returns {string}
+     */
+    const extractPracticeSpeakingTopic = function(label) {
+        if (!label || label === 'Free conversation') {
+            return '';
+        }
+        return label.replace(/^(Discuss|Talk about) /, '');
+    };
+
+    /**
+     * Build the spoken greeting for legacy speaking practice mode.
+     *
+     * @param {string=} selection
+     * @returns {string}
+     */
+    const buildPracticeSpeakingGreeting = function(selection) {
+        var topic = extractPracticeSpeakingTopic(selection);
+        if (topic) {
+            return 'Let\'s practice speaking about ' + topic + '. '
+                + 'Speak in full sentences, and I\'ll keep the conversation going. '
+                + 'If you get stuck, that\'s okay. I\'ll help.';
+        }
+        return 'Let\'s practice speaking. '
+            + 'Speak in full sentences, and I\'ll keep the conversation going. '
+            + 'If you get stuck, that\'s okay. I\'ll help.';
+    };
+
+    /**
+     * Build the natural-language kickoff message for realtime speaking practice.
+     *
+     * @param {string=} selection
+     * @returns {string}
+     */
+    const buildPracticeSpeakingInitialText = function(selection) {
+        var topic = extractPracticeSpeakingTopic(selection);
+        if (topic) {
+            return 'Let\'s practice speaking about ' + topic + '.';
+        }
+        return 'Let\'s practice speaking.';
+    };
+
+    /**
      * Build phrase suggestions for pronunciation coaching.
      *
      * @returns {Array<string>}
@@ -1528,6 +1573,20 @@ define([
             return '';
         }
         return label.replace(/^(Practice saying|Pronounce): /, '');
+    };
+
+    /**
+     * Build the natural-language kickoff message for realtime pronunciation mode.
+     *
+     * @param {string=} selection
+     * @returns {string}
+     */
+    const buildELLPronunciationInitialText = function(selection) {
+        var phrase = extractPronunciationPhrase(selection);
+        if (phrase) {
+            return 'Let\'s practice pronouncing "' + phrase + '".';
+        }
+        return 'Let\'s practice pronunciation.';
     };
 
     /**
@@ -1696,7 +1755,7 @@ define([
         syncVoicePanel();
 
         var sessionStarted = false;
-        var startSession = function(greeting) {
+        var startSession = function(selectionLabel) {
             if (sessionStarted) { return; }
             sessionStarted = true;
             UI.clearSuggestions();
@@ -1733,18 +1792,18 @@ define([
                     sessKey:  sessKey,
                     sseUrl:   sseUrl,
                     lang:     Speech.getLang(),
-                    greeting: greeting || '',
+                    greeting: buildPracticeSpeakingGreeting(selectionLabel),
                 }
             );
         };
 
         if (selection !== undefined) {
-            startSession(selection === 'Free conversation' ? '' : selection);
+            startSession(selection);
             return;
         }
 
         UI.showSuggestions(buildPracticeSpeakingChips(), function(text) {
-            startSession(text === 'Free conversation' ? '' : text);
+            startSession(text);
         });
     };
 
@@ -1783,13 +1842,19 @@ define([
                 chips: buildPracticeSpeakingChips(),
                 autoStartSelection: 'Free conversation',
                 getInitialText: function(selection) {
-                    return selection === 'Free conversation' ? '' : selection;
+                    return buildPracticeSpeakingInitialText(selection);
                 },
-                getInstructions: function(baseInstructions) {
+                getInstructions: function(baseInstructions, selection) {
                     var instructions = baseInstructions || '';
+                    var topic = extractPracticeSpeakingTopic(selection);
                     instructions += '\n\n## Voice Conversation\n'
                         + 'Keep the conversation grounded in the current page when relevant. '
-                        + 'Respond naturally to follow-up questions and let the student interrupt or redirect the topic.';
+                        + 'Respond naturally to follow-up questions and let the student interrupt or redirect the topic. '
+                        + 'Begin the session with a warm spoken welcome, briefly explain how the speaking practice works, '
+                        + 'and ask one simple opening question.';
+                    if (topic) {
+                        instructions += ' Use "' + topic + '" as the opening topic.';
+                    }
                     return instructions;
                 },
             });
@@ -1834,8 +1899,7 @@ define([
                 ' will give you feedback.',
             chips: buildELLPronunciationChips(),
             getInitialText: function(selection) {
-                var phrase = extractPronunciationPhrase(selection);
-                return phrase ? 'Help me practice pronouncing: "' + phrase + '".' : '';
+                return buildELLPronunciationInitialText(selection);
             },
             getInstructions: function(baseInstructions, selection) {
                 var phrase = extractPronunciationPhrase(selection);
@@ -1843,7 +1907,9 @@ define([
                 instructions += Realtime.ELL_INSTRUCTIONS;
                 if (phrase) {
                     instructions += '\n\nThe student wants to practice pronouncing: "' + phrase +
-                        '". Start by saying this phrase clearly, then ask them to repeat it.';
+                        '". Begin by welcoming the student, briefly explain the exercise, say this phrase clearly, then ask them to repeat it.';
+                } else {
+                    instructions += '\n\nBegin by welcoming the student, briefly explain the exercise, then invite them to try a word or short phrase from the current page.';
                 }
                 instructions += ' Base your pronunciation feedback and examples on the current page and nearby course content when possible.';
                 return instructions;
