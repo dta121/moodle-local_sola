@@ -1416,6 +1416,7 @@ define([
      * @param {HTMLElement} config.root
      * @param {string} config.overlayInstruction
      * @param {Array<string>} config.chips
+     * @param {string=} config.autoStartSelection
      * @param {Function=} config.getInitialText
      * @param {Function=} config.getInstructions
      */
@@ -1530,6 +1531,11 @@ define([
             });
         };
 
+        if (config.autoStartSelection) {
+            startSession(config.autoStartSelection);
+            return;
+        }
+
         UI.showSuggestions(chips, function(text) {
             startSession(text);
         });
@@ -1539,8 +1545,9 @@ define([
      * Start a legacy Practice Speaking session (SSE + TTS + browser STT/fallback).
      *
      * @param {HTMLElement} root
+     * @param {string=} selection
      */
-    const startLegacyPracticeSpeaking = function(root) {
+    const startLegacyPracticeSpeaking = function(root, selection) {
         if (!supportsLegacyVoiceFlow()) {
             UI.showNotification('This browser does not support speech input.', 'error');
             syncVoicePanel();
@@ -1559,7 +1566,7 @@ define([
         };
 
         UI.showVoiceOverlay(avatarUrl, endSession,
-            'Choose a topic or start speaking \u2014 ' + assistantName + ' will listen and respond.');
+            'Start speaking \u2014 ' + assistantName + ' will listen and respond.');
         UI.setVoiceState('idle');
         syncVoicePanel();
 
@@ -1606,6 +1613,11 @@ define([
             );
         };
 
+        if (selection !== undefined) {
+            startSession(selection === 'Free conversation' ? '' : selection);
+            return;
+        }
+
         UI.showSuggestions(buildPracticeSpeakingChips(), function(text) {
             startSession(text === 'Free conversation' ? '' : text);
         });
@@ -1641,9 +1653,10 @@ define([
             var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
             startRealtimeVoiceSession({
                 root: root,
-                overlayInstruction: 'Choose a topic or start speaking \u2014 ' + assistantName +
+                overlayInstruction: 'Start speaking \u2014 ' + assistantName +
                     ' will listen and respond.',
                 chips: buildPracticeSpeakingChips(),
+                autoStartSelection: 'Free conversation',
                 getInitialText: function(selection) {
                     return selection === 'Free conversation' ? '' : selection;
                 },
@@ -1658,7 +1671,7 @@ define([
             return;
         }
 
-        startLegacyPracticeSpeaking(root);
+        startLegacyPracticeSpeaking(root, 'Free conversation');
     };
 
     /**
