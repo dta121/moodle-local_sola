@@ -382,6 +382,42 @@ define([
     };
 
     /**
+     * Convert a timestamp into a human-friendly relative label for recency UI.
+     *
+     * @param {number|string|null} value
+     * @returns {string}
+     */
+    const formatRelativeTimestamp = function(value) {
+        const ts = normalizeTimestamp(value);
+        if (!ts) {
+            return '';
+        }
+
+        const diffMs = Math.max(0, Date.now() - ts);
+        const minuteMs = 60 * 1000;
+        const hourMs = 60 * minuteMs;
+        const dayMs = 24 * hourMs;
+
+        if (diffMs < 2 * minuteMs) {
+            return 'just now';
+        }
+        if (diffMs < hourMs) {
+            const minutesAgo = Math.floor(diffMs / minuteMs);
+            return minutesAgo + ' minute' + (minutesAgo === 1 ? '' : 's') + ' ago';
+        }
+        if (diffMs < dayMs) {
+            const hoursAgo = Math.floor(diffMs / hourMs);
+            return hoursAgo + ' hour' + (hoursAgo === 1 ? '' : 's') + ' ago';
+        }
+        if (diffMs < 2 * dayMs) {
+            return 'yesterday';
+        }
+
+        const daysAgo = Math.floor(diffMs / dayMs);
+        return daysAgo + ' days ago';
+    };
+
+    /**
      * Replace the in-memory conversation history used by the History tab.
      *
      * @param {Array} messages
@@ -2512,7 +2548,12 @@ define([
             if (!stored || !stored.topic) {
                 return;
             }
-            const daysSince = (Date.now() - stored.ts) / 86400000;
+            const lastSessionTs = normalizeTimestamp(stored.ts);
+            if (!lastSessionTs) {
+                return;
+            }
+
+            const daysSince = Math.max(0, Date.now() - lastSessionTs) / 86400000;
             if (daysSince > 14) {
                 return; // Too long ago
             }
@@ -2545,7 +2586,7 @@ define([
             } catch (e) { /**/ }
 
             const daysAgo = Math.max(1, Math.round(daysSince));
-            const timeStr = daysAgo === 1 ? 'yesterday' : daysAgo + ' days ago';
+            const timeStr = formatRelativeTimestamp(lastSessionTs) || 'recently';
 
             // Extended re-engagement for 5+ day absence.
             let msg;
