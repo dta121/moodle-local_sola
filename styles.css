@@ -812,15 +812,18 @@
 }
 
 .local-ai-course-assistant__mode-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
-    background: #f2f5f7;
-    color: #6b7280;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    color: inherit;
+    line-height: 0;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.local-ai-course-assistant__mode-icon svg {
+    display: block;
+    width: 22px;
+    height: 22px;
 }
 
 .local-ai-course-assistant__mode-label {
@@ -834,9 +837,7 @@
 }
 
 .local-ai-course-assistant__mode-btn--active .local-ai-course-assistant__mode-icon {
-    background: rgba(var(--aica-brand-rgb), 0.12);
-    color: var(--aica-brand-color);
-    box-shadow: inset 0 0 0 1px rgba(var(--aica-brand-rgb), 0.12);
+    transform: translateY(-1px);
 }
 
 .local-ai-course-assistant__mode-btn:disabled {
@@ -851,8 +852,7 @@
     }
 
     .local-ai-course-assistant__mode-btn:hover:not(:disabled) .local-ai-course-assistant__mode-icon {
-        background: rgba(var(--aica-brand-rgb), 0.1);
-        color: var(--aica-brand-color);
+        transform: translateY(-1px);
     }
 }
 
@@ -1120,9 +1120,9 @@
         font-size: 10px;
     }
 
-    .local-ai-course-assistant__mode-icon {
-        width: 32px;
-        height: 32px;
+    .local-ai-course-assistant__mode-icon svg {
+        width: 20px;
+        height: 20px;
     }
 
     .local-ai-course-assistant__scroll-down {
