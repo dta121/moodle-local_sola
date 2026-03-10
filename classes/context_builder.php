@@ -33,6 +33,12 @@ class context_builder {
     private const MAX_PROMPT_LENGTH = 60000;
 
     /**
+     * Keep Realtime session instructions smaller than the full text-chat prompt.
+     * The current-page excerpt can still be large, so this leaves room for it.
+     */
+    private const MAX_REALTIME_INSTRUCTIONS_LENGTH = 18000;
+
+    /**
      * Build the system prompt for a course and user.
      *
      * When $retrieved_chunks is non-empty (RAG mode), course content in the prompt
@@ -222,6 +228,128 @@ class context_builder {
         }
 
         return self::truncate_prompt($prompt, self::MAX_PROMPT_LENGTH);
+    }
+
+    /**
+     * Build compact, page-aware instructions for a Realtime voice session.
+     *
+     * Unlike the full text chat prompt, this keeps the base instructions concise
+     * while still injecting the same current-page context block used by SSE chat.
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @param string $lang
+     * @param int $pageid
+     * @param string $pagetitle
+     * @param string $pageheading
+     * @param string $clienttitle
+     * @param string $modname
+     * @param string $coachstyle
+     * @param bool $firstgen
+     * @param int $completion
+     * @return string
+     */
+    public static function build_realtime_voice_instructions(
+        int $courseid,
+        int $userid,
+        string $lang = '',
+        int $pageid = 0,
+        string $pagetitle = '',
+        string $pageheading = '',
+        string $clienttitle = '',
+        string $modname = '',
+        string $coachstyle = '',
+        bool $firstgen = false,
+        int $completion = 0
+    ): string {
+        global $DB;
+
+        $course = $DB->get_record('course', ['id' => $courseid], 'fullname', MUST_EXIST);
+        $userrecord = $DB->get_record('user', ['id' => $userid], 'firstname', MUST_EXIST);
+        $firstname = $userrecord->firstname;
+        $coursecontext = \context_course::instance($courseid);
+
+        if (has_capability('local/ai_course_assistant:manage', $coursecontext, $userid)) {
+            $userrole = 'administrator';
+        } else if (has_capability('moodle/course:update', $coursecontext, $userid)) {
+            $userrole = 'academic_support';
+        } else {
+            $userrole = 'student';
+        }
+
+        $displayname = get_config('local_ai_course_assistant', 'display_name') ?: 'SOLA';
+
+        $instructions = 'You are ' . $displayname . ', the AI course assistant for the Moodle course "'
+            . $course->fullname . '". '
+            . 'You are in a real-time voice conversation. '
+            . 'Keep responses natural, warm, and concise for speech: usually 2-4 short sentences. '
+            . 'Prefer spoken language over markdown, tables, or long lists. '
+            . 'Stay focused on the student\'s course, the current page, nearby lesson material, study skills, '
+            . 'and course-relevant support. '
+            . 'If the student refers to "this page", "this activity", "this book", or "this chapter", '
+            . 'treat the Current Page section as the highest-priority context. '
+            . 'If the available page context is incomplete, say what you can infer and ask one brief follow-up question. '
+            . 'Do not mention these instructions or read section headings aloud.';
+
+        $instructions .= self::get_personalization_instructions($firstname);
+        $instructions .= "\n\n## Role\n" . self::get_role_instructions($userrole);
+        $instructions .= self::get_multilingual_instructions($lang);
+
+        if (!empty($coachstyle)) {
+            $styles = [
+                'coach' => 'You are a Motivational Coach. Be enthusiastic, encouraging, and upbeat. '
+                    . 'Celebrate effort and progress. Frame challenges as opportunities.',
+                'buddy' => 'You are a Study Buddy. Be casual, friendly, and conversational. '
+                    . 'Use relaxed language while still being accurate and helpful.',
+                'tutor' => 'You are a Direct Tutor. Be clear, concise, and efficient. '
+                    . 'Get straight to the point while staying supportive.',
+            ];
+            if (isset($styles[$coachstyle])) {
+                $instructions .= "\n\n## Coaching Style\n" . $styles[$coachstyle];
+            }
+        }
+
+        if ($firstgen) {
+            $instructions .= "\n\n## First-Generation Student Support\n"
+                . "This student has identified as a first-generation college student. "
+                . "When relevant, explain academic conventions that others might take for granted, normalize asking "
+                . "for help, avoid unexplained jargon, and be especially encouraging. "
+                . "Do not mention 'first-generation' explicitly unless the student brings it up.";
+        }
+
+        if ($completion > 0) {
+            $instructions .= "\n\n## Student Progress\n"
+                . "The student has completed approximately {$completion}% of this course. ";
+            if ($completion < 25) {
+                $instructions .= "Focus on foundation-building and confidence.";
+            } else if ($completion < 50) {
+                $instructions .= "Connect new material to earlier course concepts.";
+            } else if ($completion < 75) {
+                $instructions .= "Encourage synthesis between earlier and newer topics.";
+            } else {
+                $instructions .= "Help consolidate learning and prepare for final assessments.";
+            }
+        }
+
+        if (get_config('local_ai_course_assistant', 'wellbeing_enabled')) {
+            $instructions .= self::get_wellbeing_instructions();
+        }
+
+        $currentpagecontext = self::build_current_page_context(
+            $pageid,
+            $pagetitle,
+            $pageheading,
+            $clienttitle,
+            $modname
+        );
+
+        $instructions = rtrim($instructions);
+        if ($currentpagecontext !== '') {
+            $maxbasechars = max(2500, self::MAX_REALTIME_INSTRUCTIONS_LENGTH - strlen($currentpagecontext));
+            $instructions = self::truncate_prompt($instructions, $maxbasechars) . $currentpagecontext;
+        }
+
+        return self::truncate_prompt($instructions, self::MAX_REALTIME_INSTRUCTIONS_LENGTH);
     }
 
     /**

@@ -339,10 +339,74 @@ define([
      *
      * @returns {boolean}
      */
+    const isVoiceFeatureEnabled = function(root) {
+        return !!(root && root.dataset.ttsurl);
+    };
+
+    /**
+     * Whether the course is configured to prefer OpenAI Realtime for live voice.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {boolean}
+     */
+    const isRealtimeVoicePreferred = function(root) {
+        return !!(root && (root.dataset.realtimeenabled === '1' || root.dataset.realtimeenabled === 'true'));
+    };
+
+    /**
+     * Check for the browser APIs needed by both voice flows.
+     *
+     * @returns {boolean}
+     */
+    const hasVoiceInputEnvironment = function() {
+        return window.isSecureContext && !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
+    };
+
+    /**
+     * Audio playback is required for both the legacy and Realtime voice stacks.
+     *
+     * @returns {boolean}
+     */
+    const hasAudioPlaybackSupport = function() {
+        return !!(window.AudioContext || window.webkitAudioContext);
+    };
+
+    /**
+     * Legacy speaking practice can use browser STT or MediaRecorder + Whisper fallback.
+     *
+     * @returns {boolean}
+     */
+    const supportsLegacyVoiceFlow = function() {
+        return hasAudioPlaybackSupport() && (
+            Speech.isSTTSupported() ||
+            (!!window.MediaRecorder && !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia)
+        );
+    };
+
+    /**
+     * Realtime voice uses raw microphone capture, so it does not depend on SpeechRecognition.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {boolean}
+     */
+    const canUseRealtimeVoiceChat = function(root) {
+        return isVoiceFeatureEnabled(root) && isRealtimeVoicePreferred(root) &&
+            hasVoiceInputEnvironment() && hasAudioPlaybackSupport();
+    };
+
+    /**
+     * Legacy voice remains available anywhere the browser can support it.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {boolean}
+     */
+    const canUseLegacyVoiceChat = function(root) {
+        return isVoiceFeatureEnabled(root) && hasVoiceInputEnvironment() && supportsLegacyVoiceFlow();
+    };
+
     const isVoiceChatAvailable = function() {
         const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
-        const hasVoiceFeature = !!(root && root.dataset.ttsurl);
-        return hasVoiceFeature && window.isSecureContext && !!navigator.mediaDevices && Speech.isSTTSupported();
+        return canUseRealtimeVoiceChat(root) || canUseLegacyVoiceChat(root);
     };
 
     /**
@@ -360,11 +424,13 @@ define([
         let status = 'Ready when you are.';
         if (Voice.isConnected() || Realtime.isConnected()) {
             status = 'Voice chat is live. Speak or type to continue.';
-        } else if (!root.dataset.ttsurl) {
+        } else if (!isVoiceFeatureEnabled(root)) {
             status = 'Voice chat is not enabled for this course yet.';
-        } else if (!window.isSecureContext || !navigator.mediaDevices) {
+        } else if (!hasVoiceInputEnvironment()) {
             status = 'Voice chat needs HTTPS and microphone access.';
-        } else if (!Speech.isSTTSupported()) {
+        } else if (!hasAudioPlaybackSupport()) {
+            status = 'Audio playback is not available in this browser.';
+        } else if (!isRealtimeVoicePreferred(root) && !supportsLegacyVoiceFlow()) {
             status = 'This browser does not support speech input.';
         }
         UI.configureVoicePanel({
@@ -372,6 +438,37 @@ define([
             status: status,
             disabled: !available,
         });
+    };
+
+    /**
+     * Build the server request context for a Realtime voice session.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {Object}
+     */
+    const getRealtimeVoiceRequestContext = function(root) {
+        root = root || UI.getElements().root || document.getElementById('local-ai-course-assistant');
+
+        let coachingStyle = '';
+        let firstGen = false;
+        try {
+            coachingStyle = localStorage.getItem('aica_coaching_style') || '';
+        } catch (e) { /**/ }
+        try {
+            firstGen = localStorage.getItem('aica_firstgen') === '1';
+        } catch (e) { /**/ }
+
+        return {
+            lang: Speech.getLang() || '',
+            pageId: currentPageId || 0,
+            pageTitle: currentPageTitle || '',
+            pageHeading: getContextDebugHeading() || (root ? (root.dataset.serverPageHeading || '') : ''),
+            clientTitle: document.title || (root ? (root.dataset.serverPageTitle || '') : ''),
+            modName: root ? (root.dataset.modname || '') : '',
+            coachingStyle: coachingStyle,
+            firstGen: firstGen,
+            completion: root ? (parseInt(root.dataset.completionpct, 10) || 0) : 0,
+        };
     };
 
     /**
@@ -1132,60 +1229,21 @@ define([
     };
 
     /**
-     * Start a Practice Speaking session (Option B: SSE + TTS + Web Speech API).
-     * Cheaper and more reliable than Realtime; suitable for conversational practice.
+     * Reset overlay state once a voice session ends or fails.
      */
-    const handlePracticeSpeaking = function() {
-        if (sending || streamController) {
-            UI.showNotification('Please wait for the current response to finish before starting voice chat.', 'error');
-            return;
-        }
-        setBottomMode('voice', {force: true});
+    const teardownVoiceSessionUi = function() {
+        UI.clearSuggestions();
+        UI.hideVoiceOverlay();
         syncVoicePanel();
-        const root = document.getElementById('local-ai-course-assistant');
-        if (!root || !root.dataset.ttsurl) {
-            UI.showNotification('Voice chat is not enabled for this course yet.', 'error');
-            syncVoicePanel();
-            return;
-        }
-        if (!Speech.isSTTSupported()) {
-            UI.showNotification('This browser does not support speech input.', 'error');
-            syncVoicePanel();
-            return;
-        }
+        UI.showStarters();
+    };
 
-        // Practice Speaking uses the Web Speech API (STT), which also requires HTTPS on iOS.
-        if (!window.isSecureContext || !navigator.mediaDevices) {
-            addAssistantMsg(
-                'Practice Speaking requires a secure connection (HTTPS). ' +
-                'Please use the HTTPS version of this site to access voice features.'
-            );
-            syncVoicePanel();
-            return;
-        }
-
-        // Clean up any existing session before starting.
-        if (Realtime.isConnected()) { Realtime.disconnect(); }
-        // Voice.connect() calls disconnect() internally if already connected.
-
-        const avatarUrl = root ? root.dataset.avatarurl : '';
-        const voice = localStorage.getItem('aica_tts_voice') || 'shimmer';
-        var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
-
-        const endSession = function() {
-            Voice.disconnect();
-            UI.clearSuggestions();
-            UI.hideVoiceOverlay();
-            syncVoicePanel();
-            UI.showStarters();
-        };
-
-        UI.showVoiceOverlay(avatarUrl, endSession,
-            'Choose a topic or start speaking \u2014 ' + assistantName + ' will listen and respond.');
-        UI.setVoiceState('idle');
-        syncVoicePanel();
-
-        // Build context-aware conversation starters for speaking practice.
+    /**
+     * Build context-aware conversation starters for general voice chat.
+     *
+     * @returns {Array<string>}
+     */
+    const buildPracticeSpeakingChips = function() {
         var speakChips = [];
         if (currentPageTitle) {
             speakChips.push('Discuss ' + currentPageTitle);
@@ -1197,6 +1255,190 @@ define([
             }
         }
         speakChips.push('Free conversation');
+        return speakChips;
+    };
+
+    /**
+     * Build phrase suggestions for pronunciation coaching.
+     *
+     * @returns {Array<string>}
+     */
+    const buildELLPronunciationChips = function() {
+        var vocabChips = [];
+        if (currentPageTitle) {
+            vocabChips.push('Practice saying: ' + currentPageTitle);
+        }
+        for (var i = 0; i < moduleTitles.length && vocabChips.length < 4; i++) {
+            var title = moduleTitles[i] && moduleTitles[i].name ? moduleTitles[i].name : '';
+            if (title && title !== currentPageTitle) {
+                vocabChips.push('Pronounce: ' + title);
+            }
+        }
+        vocabChips.push('Free practice');
+        return vocabChips;
+    };
+
+    /**
+     * Extract the raw practice phrase from a pronunciation suggestion chip.
+     *
+     * @param {string} label
+     * @returns {string}
+     */
+    const extractPronunciationPhrase = function(label) {
+        if (!label || label === 'Free practice') {
+            return '';
+        }
+        return label.replace(/^(Practice saying|Pronounce): /, '');
+    };
+
+    /**
+     * Shared OpenAI Realtime session bootstrap for voice chat and pronunciation.
+     *
+     * @param {Object} config
+     * @param {HTMLElement} config.root
+     * @param {string} config.overlayInstruction
+     * @param {Array<string>} config.chips
+     * @param {Function=} config.getInitialText
+     * @param {Function=} config.getInstructions
+     */
+    const startRealtimeVoiceSession = function(config) {
+        const root = config.root || document.getElementById('local-ai-course-assistant');
+        const avatarUrl = root ? root.dataset.avatarurl : '';
+
+        if (Realtime.isConnected()) { Realtime.disconnect(); }
+        if (Voice.isConnected())    { Voice.disconnect(); }
+
+        // Create AudioContext synchronously so iOS/WKWebView keeps playback unlocked.
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        if (AudioContextClass) {
+            try {
+                audioCtx = new AudioContextClass({sampleRate: 24000});
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(function() {/**/});
+                }
+            } catch (e) {
+                audioCtx = null;
+            }
+        }
+
+        if (!audioCtx) {
+            addAssistantMsg('Audio playback is not available in this browser.');
+            syncVoicePanel();
+            return;
+        }
+
+        const micPromise = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+            ? navigator.mediaDevices.getUserMedia({audio: true}).catch(function() { return null; })
+            : Promise.resolve(null);
+
+        const endSession = function() {
+            Realtime.disconnect();
+            teardownVoiceSessionUi();
+        };
+
+        const overlay = UI.showVoiceOverlay(avatarUrl, endSession, config.overlayInstruction || '');
+        UI.setVoiceState('idle');
+        syncVoicePanel();
+
+        const chips = (config.chips && config.chips.length) ? config.chips.slice() : ['Free conversation'];
+        var sessionStarted = false;
+        var startSession = function(selection) {
+            if (sessionStarted) { return; }
+            sessionStarted = true;
+            UI.clearSuggestions();
+            UI.setVoiceState('connecting');
+
+            Promise.all([
+                Repo.getRealtimeToken(courseId, getRealtimeVoiceRequestContext(root)),
+                micPromise,
+            ]).then(function(results) {
+                const result = results[0] || {};
+                const micStream = results[1];
+                const token = result.token;
+                const voice = localStorage.getItem('aica_tts_voice') || result.voice || 'shimmer';
+                const baseInstructions = result.instructions || '';
+                const instructions = config.getInstructions
+                    ? config.getInstructions(baseInstructions, selection)
+                    : baseInstructions;
+                const initialText = config.getInitialText ? config.getInitialText(selection) : '';
+                let initialTextSent = false;
+
+                Realtime.connect(
+                    token,
+                    instructions,
+                    voice,
+                    {
+                        onTranscript: function(role, text) {
+                            UI.appendVoiceTranscript(role, text);
+                        },
+                        onStateChange: function(state) {
+                            UI.setVoiceState(state);
+                            syncVoicePanel();
+                            if (state === 'idle' && initialText && !initialTextSent) {
+                                initialTextSent = true;
+                                Realtime.sendText(initialText);
+                                return;
+                            }
+                            if (state === 'disconnected') {
+                                teardownVoiceSessionUi();
+                            }
+                        },
+                        onError: function(msg) {
+                            UI.setVoiceState('disconnected');
+                            teardownVoiceSessionUi();
+                            addAssistantMsg(msg || 'Voice connection failed.');
+                        },
+                        onSuggestions: function(nextChips) {
+                            UI.showSuggestions(nextChips, function(text) {
+                                UI.clearSuggestions();
+                                Realtime.sendText(text);
+                            });
+                        },
+                    },
+                    overlay,
+                    audioCtx,
+                    micStream
+                );
+            }).catch(function(err) {
+                UI.setVoiceState('disconnected');
+                teardownVoiceSessionUi();
+                addAssistantMsg((err && err.message) ? err.message : 'Could not start live voice chat.');
+            });
+        };
+
+        UI.showSuggestions(chips, function(text) {
+            startSession(text);
+        });
+    };
+
+    /**
+     * Start a legacy Practice Speaking session (SSE + TTS + browser STT/fallback).
+     *
+     * @param {HTMLElement} root
+     */
+    const startLegacyPracticeSpeaking = function(root) {
+        if (!supportsLegacyVoiceFlow()) {
+            UI.showNotification('This browser does not support speech input.', 'error');
+            syncVoicePanel();
+            return;
+        }
+
+        if (Realtime.isConnected()) { Realtime.disconnect(); }
+
+        const avatarUrl = root ? root.dataset.avatarurl : '';
+        const voice = localStorage.getItem('aica_tts_voice') || 'shimmer';
+        var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
+
+        const endSession = function() {
+            Voice.disconnect();
+            teardownVoiceSessionUi();
+        };
+
+        UI.showVoiceOverlay(avatarUrl, endSession,
+            'Choose a topic or start speaking \u2014 ' + assistantName + ' will listen and respond.');
+        UI.setVoiceState('idle');
+        syncVoicePanel();
 
         var sessionStarted = false;
         var startSession = function(greeting) {
@@ -1215,18 +1457,13 @@ define([
                         UI.setVoiceState(state);
                         syncVoicePanel();
                         if (state === 'disconnected') {
-                            UI.clearSuggestions();
-                            UI.hideVoiceOverlay();
-                            UI.showStarters();
+                            teardownVoiceSessionUi();
                         }
                     },
                     onError: function(msg) {
                         Voice.disconnect();
                         UI.setVoiceState('disconnected');
-                        UI.clearSuggestions();
-                        UI.hideVoiceOverlay();
-                        syncVoicePanel();
-                        UI.showStarters();
+                        teardownVoiceSessionUi();
                         addAssistantMsg(msg || 'Voice mode failed.');
                     },
                     onSuggestions: function(chips) {
@@ -1246,15 +1483,64 @@ define([
             );
         };
 
-        // Show speaking topic chips; clicking a chip starts the session with that topic.
-        UI.showSuggestions(speakChips, function(text) {
+        UI.showSuggestions(buildPracticeSpeakingChips(), function(text) {
             startSession(text === 'Free conversation' ? '' : text);
         });
     };
 
     /**
-     * Start an ELL Pronunciation session (Option C: OpenAI Realtime WebSocket).
-     * Uses phoneme-level audio analysis — requires realtime_enabled and an OpenAI key.
+     * Start the main Voice Chat flow, preferring OpenAI Realtime when enabled.
+     */
+    const handlePracticeSpeaking = function() {
+        if (sending || streamController) {
+            UI.showNotification('Please wait for the current response to finish before starting voice chat.', 'error');
+            return;
+        }
+        setBottomMode('voice', {force: true});
+        syncVoicePanel();
+        const root = document.getElementById('local-ai-course-assistant');
+        if (!root || !isVoiceFeatureEnabled(root)) {
+            UI.showNotification('Voice chat is not enabled for this course yet.', 'error');
+            syncVoicePanel();
+            return;
+        }
+
+        if (!hasVoiceInputEnvironment()) {
+            addAssistantMsg(
+                'Voice chat requires a secure connection (HTTPS). ' +
+                'Please use the HTTPS version of this site to access voice features.'
+            );
+            syncVoicePanel();
+            return;
+        }
+
+        if (isRealtimeVoicePreferred(root)) {
+            var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
+            startRealtimeVoiceSession({
+                root: root,
+                overlayInstruction: 'Choose a topic or start speaking \u2014 ' + assistantName +
+                    ' will listen and respond.',
+                chips: buildPracticeSpeakingChips(),
+                getInitialText: function(selection) {
+                    return selection === 'Free conversation' ? '' : selection;
+                },
+                getInstructions: function(baseInstructions) {
+                    var instructions = baseInstructions || '';
+                    instructions += '\n\n## Voice Conversation\n'
+                        + 'Keep the conversation grounded in the current page when relevant. '
+                        + 'Respond naturally to follow-up questions and let the student interrupt or redirect the topic.';
+                    return instructions;
+                },
+            });
+            return;
+        }
+
+        startLegacyPracticeSpeaking(root);
+    };
+
+    /**
+     * Start an ELL Pronunciation session (OpenAI Realtime WebSocket).
+     * Uses phoneme-level audio analysis and page-aware instructions.
      */
     const handleELLPronunciation = function() {
         if (sending || streamController) {
@@ -1264,11 +1550,7 @@ define([
         setBottomMode('voice', {force: true});
         syncVoicePanel();
 
-        // Microphone API requires a secure context (HTTPS). On iOS Chrome even
-        // localhost over HTTP is not treated as secure, so navigator.mediaDevices
-        // is undefined. Fail fast with a clear message rather than the cryptic
-        // "getUserMedia not supported" error from deep inside the Realtime module.
-        if (!window.isSecureContext || !navigator.mediaDevices) {
+        if (!hasVoiceInputEnvironment()) {
             addAssistantMsg(
                 'ELL Pronunciation requires a secure connection (HTTPS). ' +
                 'Please use the HTTPS version of this site to access voice features.'
@@ -1277,151 +1559,34 @@ define([
             return;
         }
 
-        // Clean up any existing session (Realtime or Practice Speaking) before starting.
-        if (Realtime.isConnected()) { Realtime.disconnect(); }
-        if (Voice.isConnected())    { Voice.disconnect(); }
-
         const root = document.getElementById('local-ai-course-assistant');
-        const avatarUrl = root ? root.dataset.avatarurl : '';
-        var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
-
-        // Create AudioContext synchronously — iOS/WKWebView require it inside the user gesture.
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        if (AudioContextClass) {
-            try {
-                audioCtx = new AudioContextClass({sampleRate: 24000});
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume().catch(function() {/**/});
-                }
-            } catch (e) {
-                audioCtx = null;
-            }
-        }
-
-        // Pre-request microphone access within the user-gesture call stack.
-        // iOS/WKWebView requires getUserMedia to be initiated synchronously during a user
-        // gesture; the WebSocket 'session.created' callback fires too late.
-        const micPromise = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
-            ? navigator.mediaDevices.getUserMedia({audio: true}).catch(function() { return null; })
-            : Promise.resolve(null);
-
-        const endSession = function() {
-            Realtime.disconnect();
-            UI.clearSuggestions();
-            UI.hideVoiceOverlay();
+        if (!root || !isRealtimeVoicePreferred(root)) {
+            addAssistantMsg('ELL Pronunciation is not enabled for this course yet.');
             syncVoicePanel();
-            UI.showStarters();
-        };
-
-        const overlay = UI.showVoiceOverlay(avatarUrl, endSession,
-            'Choose a phrase to practice or start speaking \u2014 ' + assistantName + ' will give you feedback.');
-        UI.setVoiceState('idle');
-        syncVoicePanel();
-
-        // Build vocabulary chips from course context.
-        var vocabChips = [];
-        if (currentPageTitle) {
-            vocabChips.push('Practice saying: ' + currentPageTitle);
+            return;
         }
-        for (var i = 0; i < moduleTitles.length && vocabChips.length < 4; i++) {
-            var title = moduleTitles[i] && moduleTitles[i].name ? moduleTitles[i].name : '';
-            if (title && title !== currentPageTitle) {
-                vocabChips.push('Pronounce: ' + title);
-            }
-        }
-        vocabChips.push('Free practice');
 
-        var sessionStarted = false;
-        var startPronunciation = function(phrase) {
-            if (sessionStarted) { return; }
-            sessionStarted = true;
-            UI.clearSuggestions();
-            UI.setVoiceState('connecting');
-
-            // Fetch token and mic stream in parallel — both initiated within the user gesture.
-            Promise.all([Repo.getRealtimeToken(courseId), micPromise]).then(function(results) {
-                const result    = results[0];
-                const micStream = results[1]; // null if getUserMedia failed or unsupported
-
-                const token = result.token;
-                const voice = localStorage.getItem('aica_tts_voice') || result.voice;
-
-                // Enrich ELL instructions with course page context for relevant suggestions.
-                let ellInstructions = Realtime.ELL_INSTRUCTIONS;
+        var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
+        startRealtimeVoiceSession({
+            root: root,
+            overlayInstruction: 'Choose a phrase to practice or start speaking \u2014 ' + assistantName +
+                ' will give you feedback.',
+            chips: buildELLPronunciationChips(),
+            getInitialText: function(selection) {
+                var phrase = extractPronunciationPhrase(selection);
+                return phrase ? 'Help me practice pronouncing: "' + phrase + '".' : '';
+            },
+            getInstructions: function(baseInstructions, selection) {
+                var phrase = extractPronunciationPhrase(selection);
+                var instructions = baseInstructions ? (baseInstructions + '\n\n') : '';
+                instructions += Realtime.ELL_INSTRUCTIONS;
                 if (phrase) {
-                    ellInstructions += '\n\nThe student wants to practice pronouncing: "' + phrase +
+                    instructions += '\n\nThe student wants to practice pronouncing: "' + phrase +
                         '". Start by saying this phrase clearly, then ask them to repeat it.';
                 }
-                if (currentPageTitle) {
-                    ellInstructions += ' The learner is currently studying: "' + currentPageTitle + '".';
-                }
-                if (moduleTitles.length) {
-                    ellInstructions += ' Course topics include: ' + moduleTitles.slice(0, 8).join(', ') + '.';
-                }
-                ellInstructions += ' Base your SOLA_NEXT suggestions on the course content when possible.';
-
-                Realtime.connect(
-                    token,
-                    ellInstructions,
-                    voice,
-                    {
-                        onTranscript: function(role, text) {
-                            UI.appendVoiceTranscript(role, text);
-                        },
-                        onStateChange: function(state) {
-                            UI.setVoiceState(state);
-                            syncVoicePanel();
-                            if (state === 'disconnected') {
-                                UI.clearSuggestions();
-                                UI.hideVoiceOverlay();
-                                UI.showStarters();
-                            }
-                        },
-                        onError: function(msg) {
-                            UI.setVoiceState('disconnected');
-                            UI.clearSuggestions();
-                            UI.hideVoiceOverlay();
-                            syncVoicePanel();
-                            UI.showStarters();
-                            addAssistantMsg(msg || 'Voice connection failed.');
-                        },
-                        onSuggestions: function(chips) {
-                            UI.showSuggestions(chips, function(text) {
-                                UI.clearSuggestions();
-                                Realtime.sendText(text);
-                            });
-                        },
-                    },
-                    overlay,
-                    audioCtx,
-                    micStream
-                );
-                return;
-            }).catch(function(err) {
-                UI.setVoiceState('disconnected');
-                UI.clearSuggestions();
-                UI.hideVoiceOverlay();
-                syncVoicePanel();
-                UI.showStarters();
-                const errMsg = (err && err.message) ? err.message : 'Could not get voice token.';
-                Str.get_string('chat:voice_error', 'local_ai_course_assistant').then(function(s) {
-                    addAssistantMsg((s || 'Voice connection failed') + ': ' + errMsg);
-                    return;
-                }).catch(function() {
-                    addAssistantMsg(errMsg);
-                });
-            });
-        };
-
-        // Show vocabulary chips; clicking a chip starts the pronunciation session.
-        UI.showSuggestions(vocabChips, function(text) {
-            var phrase = '';
-            if (text !== 'Free practice') {
-                // Strip "Practice saying: " or "Pronounce: " prefix to get the raw phrase.
-                phrase = text.replace(/^(Practice saying|Pronounce): /, '');
-            }
-            startPronunciation(phrase);
+                instructions += ' Base your SOLA_NEXT suggestions on the current page and nearby course content when possible.';
+                return instructions;
+            },
         });
     };
 

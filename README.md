@@ -2,9 +2,9 @@
 
 A comprehensive AI-powered chat widget for Moodle 4.5+ that provides context-aware tutoring, support, and study planning for students.
 
-## Version 0.3.0 (Beta)
+## Version 1.6.0
 
-**Release Date:** January 2025
+**Release Date:** March 10, 2026
 **Requires:** Moodle 4.5+ (2024100700)
 **License:** GPL v3+
 
@@ -337,4 +337,4 @@ Contributions welcome! Please:
 
 ---
 
-**Note:** This plugin is in BETA. Use in production environments at your own risk. Always test thoroughly in a staging environment first.
+**Note:** This plugin is marked STABLE, but you should still test thoroughly in a staging environment before production deployment.

@@ -33,6 +33,15 @@ class get_realtime_token extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
+            'lang' => new external_value(PARAM_ALPHA, 'Preferred language code', VALUE_DEFAULT, ''),
+            'pageid' => new external_value(PARAM_INT, 'Current course module ID', VALUE_DEFAULT, 0),
+            'pagetitle' => new external_value(PARAM_TEXT, 'Current activity title', VALUE_DEFAULT, ''),
+            'pageheading' => new external_value(PARAM_TEXT, 'Visible page heading', VALUE_DEFAULT, ''),
+            'clienttitle' => new external_value(PARAM_TEXT, 'Browser page title', VALUE_DEFAULT, ''),
+            'modname' => new external_value(PARAM_ALPHANUMEXT, 'Current activity type', VALUE_DEFAULT, ''),
+            'coachstyle' => new external_value(PARAM_ALPHA, 'Coaching style preference', VALUE_DEFAULT, ''),
+            'firstgen' => new external_value(PARAM_BOOL, 'First-generation student mode', VALUE_DEFAULT, false),
+            'completion' => new external_value(PARAM_INT, 'Course completion percentage', VALUE_DEFAULT, 0),
         ]);
     }
 
@@ -40,10 +49,43 @@ class get_realtime_token extends external_api {
      * Get an ephemeral OpenAI Realtime session token.
      *
      * @param int $courseid
+     * @param string $lang
+     * @param int $pageid
+     * @param string $pagetitle
+     * @param string $pageheading
+     * @param string $clienttitle
+     * @param string $modname
+     * @param string $coachstyle
+     * @param bool $firstgen
+     * @param int $completion
      * @return array
      */
-    public static function execute(int $courseid): array {
-        $params = self::validate_parameters(self::execute_parameters(), ['courseid' => $courseid]);
+    public static function execute(
+        int $courseid,
+        string $lang = '',
+        int $pageid = 0,
+        string $pagetitle = '',
+        string $pageheading = '',
+        string $clienttitle = '',
+        string $modname = '',
+        string $coachstyle = '',
+        bool $firstgen = false,
+        int $completion = 0
+    ): array {
+        global $USER;
+
+        $params = self::validate_parameters(self::execute_parameters(), [
+            'courseid' => $courseid,
+            'lang' => $lang,
+            'pageid' => $pageid,
+            'pagetitle' => $pagetitle,
+            'pageheading' => $pageheading,
+            'clienttitle' => $clienttitle,
+            'modname' => $modname,
+            'coachstyle' => $coachstyle,
+            'firstgen' => $firstgen,
+            'completion' => $completion,
+        ]);
 
         $coursecontext = \context_course::instance($params['courseid']);
         self::validate_context($coursecontext);
@@ -64,6 +106,20 @@ class get_realtime_token extends external_api {
         }
 
         $voice = get_config('local_ai_course_assistant', 'realtime_voice') ?: 'shimmer';
+        $completion = max(0, min(100, (int)$params['completion']));
+        $instructions = \local_ai_course_assistant\context_builder::build_realtime_voice_instructions(
+            $params['courseid'],
+            $USER->id,
+            $params['lang'],
+            $params['pageid'],
+            $params['pagetitle'],
+            $params['pageheading'],
+            $params['clienttitle'],
+            $params['modname'],
+            $params['coachstyle'],
+            (bool)$params['firstgen'],
+            $completion
+        );
 
         // Use native PHP curl to avoid Moodle wrapper Content-Type issues with JSON bodies.
         // /v1/realtime/client_secrets is the GA endpoint — produces a GA ephemeral token
@@ -109,6 +165,7 @@ class get_realtime_token extends external_api {
         return [
             'token' => $token,
             'voice' => $voice,
+            'instructions' => $instructions,
         ];
     }
 
@@ -116,6 +173,7 @@ class get_realtime_token extends external_api {
         return new external_single_structure([
             'token' => new external_value(PARAM_RAW, 'Ephemeral session token'),
             'voice' => new external_value(PARAM_ALPHANUMEXT, 'Voice identifier'),
+            'instructions' => new external_value(PARAM_RAW, 'Page-aware Realtime session instructions'),
         ]);
     }
 }

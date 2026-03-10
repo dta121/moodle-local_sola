@@ -200,12 +200,25 @@ define(['core/ajax'], function(Ajax) {
      * Get an ephemeral token for OpenAI Realtime voice mode.
      *
      * @param {number} courseid
+     * @param {Object=} options
      * @returns {Promise}
      */
-    const getRealtimeToken = function(courseid) {
+    const getRealtimeToken = function(courseid, options) {
+        options = options || {};
         return Ajax.call([{
             methodname: 'local_ai_course_assistant_get_realtime_token',
-            args: {courseid: courseid},
+            args: {
+                courseid: courseid,
+                lang: options.lang || '',
+                pageid: options.pageId || 0,
+                pagetitle: options.pageTitle || '',
+                pageheading: options.pageHeading || '',
+                clienttitle: options.clientTitle || '',
+                modname: options.modName || '',
+                coachstyle: options.coachingStyle || '',
+                firstgen: !!options.firstGen,
+                completion: options.completion || 0,
+            },
         }])[0];
     };
 
