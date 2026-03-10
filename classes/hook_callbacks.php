@@ -284,6 +284,9 @@ class hook_callbacks {
             'coursename'         => $course->fullname,
             'emailreminders'     => (bool)get_config('local_ai_course_assistant', 'reminders_email_enabled'),
             'completionpct'      => $completionpct,
+            'defaultvoice'       => \local_ai_course_assistant\voice_catalog::normalize(
+                (string)(get_config('local_ai_course_assistant', 'realtime_voice') ?: '')
+            ),
             'contextdebugvisible'=> $contextdebugvisible,
             'contextlevelname'   => $contextlevelname,
             'serverpageurl'      => $serverpageurl,

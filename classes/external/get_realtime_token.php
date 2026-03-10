@@ -105,7 +105,9 @@ class get_realtime_token extends external_api {
                 'No OpenAI API key configured for voice mode.');
         }
 
-        $voice = get_config('local_ai_course_assistant', 'realtime_voice') ?: 'shimmer';
+        $voicepreference = get_config('local_ai_course_assistant', 'realtime_voice')
+            ?: \local_ai_course_assistant\voice_catalog::DEFAULT_VOICE;
+        $voice = \local_ai_course_assistant\voice_catalog::realtime_voice($voicepreference);
         $completion = max(0, min(100, (int)$params['completion']));
         $instructions = \local_ai_course_assistant\context_builder::build_realtime_voice_instructions(
             $params['courseid'],

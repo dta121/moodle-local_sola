@@ -2442,7 +2442,7 @@ define([
         let pendingLangName = config.currentLang ? (config.langs[config.currentLang] || {}).name : 'English';
         let pendingAvatarId = null;
         let pendingAvatarUrl = config.currentAvatarUrl || null;
-        let pendingVoice = config.currentVoice || 'shimmer';
+        let pendingVoice = config.currentVoice || 'marin';
 
         const panel = document.createElement('div');
         panel.className = 'aica-settings-panel';
@@ -2597,8 +2597,11 @@ define([
             const voiceSelect = document.createElement('select');
             voiceSelect.className = 'aica-settings-panel__select';
             [
+                {id: 'marin',   label: 'Marin'},
+                {id: 'cedar',   label: 'Cedar'},
                 {id: 'alloy',   label: 'Alloy'},
                 {id: 'ash',     label: 'Ash'},
+                {id: 'ballad',  label: 'Ballad'},
                 {id: 'coral',   label: 'Coral'},
                 {id: 'echo',    label: 'Echo'},
                 {id: 'fable',   label: 'Fable'},
@@ -2606,17 +2609,24 @@ define([
                 {id: 'onyx',    label: 'Onyx'},
                 {id: 'sage',    label: 'Sage'},
                 {id: 'shimmer', label: 'Shimmer'},
+                {id: 'verse',   label: 'Verse'},
             ].forEach(function(v) {
                 const opt = document.createElement('option');
                 opt.value = v.id;
                 opt.textContent = v.label;
-                if ((config.currentVoice || 'shimmer') === v.id) { opt.selected = true; }
+                if ((config.currentVoice || 'marin') === v.id) { opt.selected = true; }
                 voiceSelect.appendChild(opt);
             });
             voiceSelect.addEventListener('change', function() {
                 pendingVoice = voiceSelect.value;
             });
             voiceSection.appendChild(voiceSelect);
+
+            const voiceNote = document.createElement('p');
+            voiceNote.style.cssText = 'margin:8px 0 0;font-size:12px;color:#6c757d';
+            voiceNote.textContent =
+                'Voice Chat and the speak button automatically use compatible OpenAI voices when needed.';
+            voiceSection.appendChild(voiceNote);
 
             // Speed slider (Practice Speaking TTS only — 0.5× to 2.0×).
             if (config.hasTts) {
@@ -2880,7 +2890,7 @@ define([
                 callbacks.onAvatarSelect(pendingAvatarId, pendingAvatarUrl);
             }
             // Apply voice if changed.
-            if (pendingVoice && pendingVoice !== (config.currentVoice || 'shimmer')) {
+            if (pendingVoice && pendingVoice !== (config.currentVoice || 'marin')) {
                 if (callbacks.onVoiceSelect) {
                     callbacks.onVoiceSelect(pendingVoice);
                 }

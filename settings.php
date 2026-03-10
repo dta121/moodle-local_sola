@@ -523,19 +523,12 @@ if ($hassiteconfig) {
     ));
 
     // Realtime voice.
-    $realtimevoices = [
-        'shimmer' => 'Shimmer',
-        'alloy'   => 'Alloy',
-        'echo'    => 'Echo',
-        'fable'   => 'Fable',
-        'onyx'    => 'Onyx',
-        'nova'    => 'Nova',
-    ];
+    $realtimevoices = \local_ai_course_assistant\voice_catalog::display_voices();
     $settings->add(new admin_setting_configselect(
         'local_ai_course_assistant/realtime_voice',
         get_string('settings:realtime_voice', 'local_ai_course_assistant'),
         get_string('settings:realtime_voice_desc', 'local_ai_course_assistant'),
-        'shimmer',
+        \local_ai_course_assistant\voice_catalog::DEFAULT_VOICE,
         $realtimevoices
     ));
 

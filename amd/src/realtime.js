@@ -569,7 +569,7 @@ define([], function() {
                         },
                         output: {
                             format: {type: 'audio/pcm', rate: 24000},
-                            voice: voice || 'shimmer',
+                            voice: voice || 'marin',
                         },
                     },
                 },

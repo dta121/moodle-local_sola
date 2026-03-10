@@ -371,6 +371,73 @@ define([
         return !!(window.AudioContext || window.webkitAudioContext);
     };
 
+    /** @type {string} Default SOLA voice preference */
+    const DEFAULT_VOICE = 'marin';
+
+    /**
+     * Get the admin-configured default voice for this widget.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {string}
+     */
+    const getDefaultVoice = function(root) {
+        root = root || UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        return (root && root.dataset.defaultvoice) ? root.dataset.defaultvoice : DEFAULT_VOICE;
+    };
+
+    /**
+     * Get the user's saved SOLA voice preference, if any.
+     *
+     * @returns {string}
+     */
+    const getStoredVoicePreference = function() {
+        try {
+            return localStorage.getItem('aica_tts_voice') || '';
+        } catch (e) {
+            return '';
+        }
+    };
+
+    /**
+     * Normalize a SOLA voice preference for Realtime sessions.
+     *
+     * Realtime and TTS do not share an identical OpenAI voice catalog, so
+     * older TTS-only voices are mapped to the closest supported Realtime option.
+     *
+     * @param {string} voice
+     * @returns {string}
+     */
+    const getRealtimeCompatibleVoice = function(voice) {
+        const fallbacks = {
+            fable: 'ballad',
+            nova: 'coral',
+            onyx: 'cedar',
+        };
+        return fallbacks[voice] || voice || DEFAULT_VOICE;
+    };
+
+    /**
+     * Resolve the current SOLA voice preference for UI and legacy TTS.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {string}
+     */
+    const getPreferredVoice = function(root) {
+        return getStoredVoicePreference() || getDefaultVoice(root);
+    };
+
+    /**
+     * Resolve the current SOLA voice preference for Realtime.
+     *
+     * @param {HTMLElement|null} root
+     * @param {string=} fallbackVoice
+     * @returns {string}
+     */
+    const getRealtimeVoicePreference = function(root, fallbackVoice) {
+        const preferred = getStoredVoicePreference() || fallbackVoice || getDefaultVoice(root);
+        return getRealtimeCompatibleVoice(preferred);
+    };
+
     /**
      * Preferred microphone constraints for live voice.
      * Echo cancellation keeps assistant playback from retriggering the mic path.
@@ -1162,7 +1229,7 @@ define([
                     currentAvatarUrl: root.dataset.avatarurl || '',
                     realtimeEnabled: root.dataset.realtimeenabled === '1' || root.dataset.realtimeenabled === 'true',
                     hasTts: !!(root.dataset.ttsurl),
-                    currentVoice: localStorage.getItem('aica_tts_voice') || 'shimmer',
+                    currentVoice: getPreferredVoice(root),
                     studySessions: studySessions,
                     quizHistory: quizHistory,
                     emailRemindersEnabled: root.dataset.emailreminders === '1',
@@ -1408,7 +1475,7 @@ define([
                 const result = results[0] || {};
                 const micStream = results[1];
                 const token = result.token;
-                const voice = localStorage.getItem('aica_tts_voice') || result.voice || 'shimmer';
+                const voice = getRealtimeVoicePreference(root, result.voice);
                 const baseInstructions = result.instructions || '';
                 const instructions = config.getInstructions
                     ? config.getInstructions(baseInstructions, selection)
@@ -1483,7 +1550,7 @@ define([
         if (Realtime.isConnected()) { Realtime.disconnect(); }
 
         const avatarUrl = root ? root.dataset.avatarurl : '';
-        const voice = localStorage.getItem('aica_tts_voice') || 'shimmer';
+        const voice = getPreferredVoice(root);
         var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
 
         const endSession = function() {

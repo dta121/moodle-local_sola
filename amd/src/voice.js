@@ -257,7 +257,7 @@ define(['local_ai_course_assistant/sse_client'], function(SSE) {
         body.append('text', text);
         body.append('courseid', cfg.courseId || 0);
         body.append('sesskey', cfg.sessKey || '');
-        body.append('voice', cfg.voice || 'shimmer');
+        body.append('voice', cfg.voice || 'marin');
 
         return fetch(ttsUrl, {method: 'POST', body: body, signal: signal})
             .then(function(r) { return r.json(); })
@@ -775,7 +775,7 @@ define(['local_ai_course_assistant/sse_client'], function(SSE) {
             sessKey:  config.sessKey  || '',
             sseUrl:   config.sseUrl   || '',
             lang:     config.lang     || 'en-US',
-            voice:    voice || 'shimmer',
+            voice:    voice || 'marin',
         };
 
         // Derive TTS URL from SSE URL.

@@ -60,7 +60,11 @@ if (empty($apikey)) {
 
 // Student's saved voice preference takes priority over the site default.
 $voice_param = optional_param('voice', '', PARAM_ALPHA);
-$voice = $voice_param ?: (get_config('local_ai_course_assistant', 'realtime_voice') ?: 'shimmer');
+$voicepreference = $voice_param ?: (
+    get_config('local_ai_course_assistant', 'realtime_voice')
+    ?: \local_ai_course_assistant\voice_catalog::DEFAULT_VOICE
+);
+$voice = \local_ai_course_assistant\voice_catalog::tts_voice($voicepreference);
 
 // Truncate text to avoid excessive API costs.
 $text = mb_substr(trim($text), 0, 4096);
