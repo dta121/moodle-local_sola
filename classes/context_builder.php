@@ -371,11 +371,19 @@ class context_builder {
             $modname  = $module->name;
             $courseid = (int) $cmrec->course;
             $instance = (int) $cmrec->instance;
+            $context = \context_module::instance($cmid);
 
             if ($modname === 'page') {
                 $record = $DB->get_record('page', ['id' => $instance, 'course' => $courseid]);
                 if ($record && !empty($record->content)) {
-                    $text = strip_tags(format_text($record->content, $record->contentformat));
+                    $text = self::clean_module_rich_text(
+                        $record->content,
+                        (int) $record->contentformat,
+                        $context,
+                        'mod_page',
+                        'content',
+                        (int) ($record->revision ?? 0)
+                    );
                     $text = preg_replace('/\s+/', ' ', trim($text));
                     if (strlen($text) > 80) {
                         return substr($text, 0, $maxchars);
@@ -398,7 +406,14 @@ class context_builder {
                                 continue;
                             }
 
-                            $text = strip_tags(format_text($ch->content, $ch->contentformat));
+                            $text = self::clean_module_rich_text(
+                                $ch->content,
+                                (int) $ch->contentformat,
+                                $context,
+                                'mod_book',
+                                'chapter',
+                                (int) $ch->id
+                            );
                             $text = preg_replace('/\s+/', ' ', trim($text));
                             if (strlen($text) > 50) {
                                 $heading = !empty($ch->title) ? "{$ch->title}: " : '';
@@ -410,7 +425,14 @@ class context_builder {
                     $parts = [];
                     $perchapter = ($maxchars > 6000) ? 2400 : 1200;
                     foreach ($chapters as $ch) {
-                        $text = strip_tags(format_text($ch->content, $ch->contentformat));
+                        $text = self::clean_module_rich_text(
+                            $ch->content,
+                            (int) $ch->contentformat,
+                            $context,
+                            'mod_book',
+                            'chapter',
+                            (int) $ch->id
+                        );
                         $text = preg_replace('/\s+/', ' ', trim($text));
                         if (strlen($text) > 50) {
                             $heading = !empty($ch->title) ? "{$ch->title}: " : '';
@@ -635,7 +657,14 @@ class context_builder {
                 try {
                     $record = $DB->get_record('page', ['id' => $cm->instance, 'course' => $courseid]);
                     if ($record && !empty($record->content)) {
-                        $text = strip_tags(format_text($record->content, $record->contentformat));
+                        $text = self::clean_module_rich_text(
+                            $record->content,
+                            (int) $record->contentformat,
+                            $cm->context,
+                            'mod_page',
+                            'content',
+                            (int) ($record->revision ?? 0)
+                        );
                         $text = preg_replace('/\s+/', ' ', trim($text));
                         if (strlen($text) > 80) {
                             $content = substr($text, 0, $maxperresource);
@@ -657,7 +686,14 @@ class context_builder {
                     if ($chapters) {
                         $parts = [];
                         foreach ($chapters as $ch) {
-                            $text = strip_tags(format_text($ch->content, $ch->contentformat));
+                            $text = self::clean_module_rich_text(
+                                $ch->content,
+                                (int) $ch->contentformat,
+                                $cm->context,
+                                'mod_book',
+                                'chapter',
+                                (int) $ch->id
+                            );
                             $text = preg_replace('/\s+/', ' ', trim($text));
                             if (strlen($text) > 50) {
                                 $heading = !empty($ch->title) ? "{$ch->title}: " : '';
@@ -684,6 +720,58 @@ class context_builder {
         }
 
         return !empty($sections) ? implode("\n\n", $sections) : '';
+    }
+
+    /**
+     * Rewrite pluginfile URLs, format module HTML, and reduce it to plain text.
+     *
+     * @param string $html
+     * @param int $format
+     * @param \context_module $context
+     * @param string $component
+     * @param string $filearea
+     * @param int|null $itemid
+     * @return string
+     */
+    private static function clean_module_rich_text(
+        string $html,
+        int $format,
+        \context_module $context,
+        string $component,
+        string $filearea,
+        ?int $itemid = null
+    ): string {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $rewritten = file_rewrite_pluginfile_urls($html, 'pluginfile.php', $context->id, $component, $filearea, $itemid);
+        $formatted = format_text($rewritten, $format, [
+            'context' => $context,
+            'noclean' => true,
+            'overflowdiv' => true,
+            'filter' => false,
+            'para' => false,
+        ]);
+
+        return self::normalise_module_plain_text($formatted);
+    }
+
+    /**
+     * Strip markup and normalize whitespace from already-formatted module HTML.
+     *
+     * @param string $html
+     * @return string
+     */
+    private static function normalise_module_plain_text(string $html): string {
+        $text = preg_replace('/<(?:br)\s*\/?>/i', "\n", $html);
+        $text = preg_replace('/<\/(?:p|div|li|h[1-6]|tr|table|ul|ol)>/i', "\n", $text);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_replace("\xc2\xa0", ' ', $text);
+        $text = preg_replace("/\r\n?/", "\n", $text);
+        $text = preg_replace('/[ \t]+/', ' ', $text);
+        $text = preg_replace('/ *\n */', "\n", $text);
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+        return trim($text);
     }
 
     /**

@@ -27,6 +27,9 @@ namespace local_ai_course_assistant\embedding_provider;
  */
 abstract class base_embedding_provider {
 
+    /** @var int Maximum error excerpt to keep from API responses. */
+    private const ERROR_EXCERPT_LIMIT = 8192;
+
     /** @var string API key (may be empty for local providers). */
     protected string $apikey;
 
@@ -43,7 +46,9 @@ abstract class base_embedding_provider {
      * Constructor — reads plugin RAG config.
      */
     public function __construct() {
-        $this->apikey     = (string) (get_config('local_ai_course_assistant', 'embed_apikey') ?: '');
+        $rawkey = trim((string) (get_config('local_ai_course_assistant', 'embed_apikey') ?: ''));
+        $parts = preg_split('/\s+/', $rawkey);
+        $this->apikey = count($parts) > 1 ? trim((string) end($parts)) : $rawkey;
         $this->model      = (string) (get_config('local_ai_course_assistant', 'embed_model') ?: $this->get_default_model());
         $this->dimensions = (int)   (get_config('local_ai_course_assistant', 'embed_dimensions') ?: 1536);
 
@@ -127,10 +132,17 @@ abstract class base_embedding_provider {
 
         $response = $curl->post($url, $body);
         $httpcode = $curl->get_info()['http_code'] ?? 0;
+        $errordetail = $this->extract_error_detail($response);
 
         if ($httpcode < 200 || $httpcode >= 300) {
             if ($httpcode === 401 || $httpcode === 403) {
-                throw new \moodle_exception('chat:error_auth', 'local_ai_course_assistant');
+                throw new \moodle_exception(
+                    'chat:error_auth',
+                    'local_ai_course_assistant',
+                    '',
+                    null,
+                    $errordetail
+                );
             }
             if ($httpcode === 429) {
                 throw new \moodle_exception('chat:error_ratelimit', 'local_ai_course_assistant');
@@ -140,10 +152,33 @@ abstract class base_embedding_provider {
                 'local_ai_course_assistant',
                 '',
                 null,
-                "Embedding API HTTP {$httpcode}: {$response}"
+                "Embedding API HTTP {$httpcode}: {$errordetail}"
             );
         }
 
         return $response;
+    }
+
+    /**
+     * Extract a readable error message from an embedding API response body.
+     *
+     * @param string $response
+     * @return string
+     */
+    protected function extract_error_detail(string $response): string {
+        $response = trim($response);
+        if ($response === '') {
+            return '';
+        }
+
+        $data = json_decode($response, true);
+        if (is_array($data)) {
+            $message = trim((string) ($data['error']['message'] ?? $data['message'] ?? ''));
+            if ($message !== '') {
+                return substr($message, 0, self::ERROR_EXCERPT_LIMIT);
+            }
+        }
+
+        return substr($response, 0, self::ERROR_EXCERPT_LIMIT);
     }
 }

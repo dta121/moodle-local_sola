@@ -45,12 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_sesskey();
 
     if ($action === 'reindexall') {
-        // Reindex all courses that have active enrolments.
-        $sql = "SELECT DISTINCT c.id, c.fullname
+        // Reindex all visible, non-site courses.
+        $sql = "SELECT c.id, c.fullname
                   FROM {course} c
-                  JOIN {enrol} e ON e.courseid = c.id AND e.status = 0
-                  JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-                 WHERE c.id > 1 AND c.visible = 1";
+                 WHERE c.id > 1
+                   AND c.visible = 1";
         $courses = $DB->get_records_sql($sql);
 
         $totalindexed = 0;
@@ -97,28 +96,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch per-course index statistics.
-// Include: courses that have chunks OR are active (visible + have enrolments).
+// Fetch per-course index statistics for all visible, non-site courses.
 $sql = "SELECT c.id, c.fullname,
                COUNT(ch.id) AS chunks,
-               SUM(CASE WHEN ch.embedding IS NOT NULL THEN 1 ELSE 0 END) AS embedded,
+               SUM(CASE WHEN ch.embedding IS NOT NULL AND ch.embedding <> '' THEN 1 ELSE 0 END) AS embedded,
                MAX(ch.timeindexed) AS lastindexed
           FROM {course} c
           LEFT JOIN {local_ai_course_assistant_chunks} ch ON ch.courseid = c.id
          WHERE c.id > 1
+           AND c.visible = 1
          GROUP BY c.id, c.fullname
-        HAVING COUNT(ch.id) > 0
          ORDER BY c.fullname ASC";
-$indexedcourses = $DB->get_records_sql($sql);
-
-// Also get active (enrolled) courses not yet indexed.
-$sql = "SELECT DISTINCT c.id, c.fullname
-          FROM {course} c
-          JOIN {enrol} e ON e.courseid = c.id AND e.status = 0
-          JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-         WHERE c.id > 1 AND c.visible = 1
-         ORDER BY c.fullname ASC";
-$activecourses = $DB->get_records_sql($sql);
+$courses = $DB->get_records_sql($sql);
+$indexedcount = count(array_filter($courses, static function($course) {
+    return (int) ($course->chunks ?? 0) > 0;
+}));
 
 $ragenabled  = (bool) get_config('local_ai_course_assistant', 'rag_enabled');
 $settingsurl = new moodle_url('/admin/settings.php', ['section' => 'local_ai_course_assistant']);
@@ -143,15 +135,19 @@ if (!$ragenabled) {
 }
 
 // Summary totals.
-$totalchunks   = array_sum(array_column((array) $indexedcourses, 'chunks'));
-$totalembedded = array_sum(array_column((array) $indexedcourses, 'embedded'));
+$totalchunks   = array_sum(array_map(static function($course) {
+    return (int) ($course->chunks ?? 0);
+}, $courses));
+$totalembedded = array_sum(array_map(static function($course) {
+    return (int) ($course->embedded ?? 0);
+}, $courses));
 ?>
 
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card text-center">
             <div class="card-body">
-                <h3 class="card-title"><?php echo count($indexedcourses); ?></h3>
+                <h3 class="card-title"><?php echo $indexedcount; ?></h3>
                 <p class="card-text text-muted"><?php echo get_string('ragadmin:stat_courses_indexed', 'local_ai_course_assistant'); ?></p>
             </div>
         </div>
@@ -175,7 +171,7 @@ $totalembedded = array_sum(array_column((array) $indexedcourses, 'embedded'));
     <div class="col-md-3">
         <div class="card text-center">
             <div class="card-body">
-                <h3 class="card-title"><?php echo count($activecourses); ?></h3>
+                <h3 class="card-title"><?php echo count($courses); ?></h3>
                 <p class="card-text text-muted"><?php echo get_string('ragadmin:stat_active_courses', 'local_ai_course_assistant'); ?></p>
             </div>
         </div>
@@ -196,7 +192,7 @@ $totalembedded = array_sum(array_column((array) $indexedcourses, 'embedded'));
 <!-- Status table -->
 <h4><?php echo get_string('ragadmin:index_status', 'local_ai_course_assistant'); ?></h4>
 
-<?php if (empty($indexedcourses) && empty($activecourses)): ?>
+<?php if (empty($courses)): ?>
     <p class="text-muted"><?php echo get_string('ragadmin:no_courses', 'local_ai_course_assistant'); ?></p>
 <?php else: ?>
 <table class="table table-sm generaltable">
@@ -210,20 +206,7 @@ $totalembedded = array_sum(array_column((array) $indexedcourses, 'embedded'));
         </tr>
     </thead>
     <tbody>
-        <?php
-        // Merge indexed and active courses, deduplicated.
-        $allcourses = $indexedcourses;
-        foreach ($activecourses as $ac) {
-            if (!isset($allcourses[$ac->id])) {
-                $ac->chunks    = 0;
-                $ac->embedded  = 0;
-                $ac->lastindexed = null;
-                $allcourses[$ac->id] = $ac;
-            }
-        }
-        uasort($allcourses, fn($a, $b) => strcmp($a->fullname, $b->fullname));
-
-        foreach ($allcourses as $course): ?>
+        <?php foreach ($courses as $course): ?>
         <tr>
             <td>
                 <?php echo html_writer::link(

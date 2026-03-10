@@ -68,7 +68,7 @@ class content_extractor {
             }
 
             try {
-                $text = self::extract_module_text($cm->modname, $cm->instance, $courseid, $DB);
+                $text = self::extract_module_text($cm->modname, $cm->instance, $courseid, (int) $cm->id, $DB);
             } catch (\Exception $e) {
                 continue;
             }
@@ -110,7 +110,7 @@ class content_extractor {
             $cm = $modinfo->get_cm($cmid);
             $title = $cm->name;
 
-            $text = self::extract_module_text($modname, $instance, $courseid, $DB);
+            $text = self::extract_module_text($modname, $instance, $courseid, $cmid, $DB);
         } catch (\Exception $e) {
             return null;
         }
@@ -133,47 +133,38 @@ class content_extractor {
      * @param string $modname Module type name (page, book, etc.)
      * @param int    $instance Module instance ID
      * @param int    $courseid Course ID
+     * @param int    $cmid Course module ID
      * @param \moodle_database $DB
      * @return string Plain text, or empty string if not extractable.
      */
-    private static function extract_module_text(string $modname, int $instance, int $courseid, \moodle_database $DB): string {
+    private static function extract_module_text(
+        string $modname,
+        int $instance,
+        int $courseid,
+        int $cmid,
+        \moodle_database $DB
+    ): string {
         switch ($modname) {
             case 'page':
-                return self::extract_page($instance, $courseid, $DB);
+                return self::extract_page($instance, $courseid, $cmid, $DB);
 
             case 'book':
-                return self::extract_book($instance, $courseid, $DB);
+                return self::extract_book($instance, $courseid, $cmid, $DB);
 
             case 'assign':
-                $record = $DB->get_record('assign', ['id' => $instance, 'course' => $courseid], 'intro, introformat');
-                if ($record && !empty($record->intro)) {
-                    return self::clean_html($record->intro, $record->introformat);
-                }
-                return '';
+                return self::extract_intro_module('assign', 'assign', $instance, $courseid, $cmid, $DB);
 
             case 'forum':
-                $record = $DB->get_record('forum', ['id' => $instance, 'course' => $courseid], 'intro, introformat');
-                if ($record && !empty($record->intro)) {
-                    return self::clean_html($record->intro, $record->introformat);
-                }
-                return '';
+                return self::extract_intro_module('forum', 'forum', $instance, $courseid, $cmid, $DB);
 
             case 'label':
-                $record = $DB->get_record('label', ['id' => $instance, 'course' => $courseid], 'intro, introformat');
-                if ($record && !empty($record->intro)) {
-                    return self::clean_html($record->intro, $record->introformat);
-                }
-                return '';
+                return self::extract_intro_module('label', 'label', $instance, $courseid, $cmid, $DB);
 
             case 'glossary':
-                return self::extract_glossary($instance, $courseid, $DB);
+                return self::extract_glossary($instance, $courseid, $cmid, $DB);
 
             case 'quiz':
-                $record = $DB->get_record('quiz', ['id' => $instance, 'course' => $courseid], 'intro, introformat');
-                if ($record && !empty($record->intro)) {
-                    return self::clean_html($record->intro, $record->introformat);
-                }
-                return '';
+                return self::extract_intro_module('quiz', 'quiz', $instance, $courseid, $cmid, $DB);
 
             default:
                 return '';
@@ -183,10 +174,18 @@ class content_extractor {
     /**
      * Extract text from mod_page.
      */
-    private static function extract_page(int $instance, int $courseid, \moodle_database $DB): string {
-        $record = $DB->get_record('page', ['id' => $instance, 'course' => $courseid], 'content, contentformat');
+    private static function extract_page(int $instance, int $courseid, int $cmid, \moodle_database $DB): string {
+        $record = $DB->get_record('page', ['id' => $instance, 'course' => $courseid], 'content, contentformat, revision');
         if ($record && !empty($record->content)) {
-            return self::clean_html($record->content, $record->contentformat);
+            $context = \context_module::instance($cmid);
+            return self::clean_rich_text(
+                $record->content,
+                (int) $record->contentformat,
+                $context,
+                'mod_page',
+                'content',
+                (int) ($record->revision ?? 0)
+            );
         }
         return '';
     }
@@ -194,7 +193,7 @@ class content_extractor {
     /**
      * Extract text from mod_book (all chapters concatenated).
      */
-    private static function extract_book(int $instance, int $courseid, \moodle_database $DB): string {
+    private static function extract_book(int $instance, int $courseid, int $cmid, \moodle_database $DB): string {
         $chapters = $DB->get_records(
             'book_chapters',
             ['bookid' => $instance, 'hidden' => 0],
@@ -206,9 +205,17 @@ class content_extractor {
             return '';
         }
 
+        $context = \context_module::instance($cmid);
         $parts = [];
         foreach ($chapters as $ch) {
-            $text = self::clean_html($ch->content, $ch->contentformat);
+            $text = self::clean_rich_text(
+                $ch->content,
+                (int) $ch->contentformat,
+                $context,
+                'mod_book',
+                'chapter',
+                (int) $ch->id
+            );
             if (strlen($text) > 50) {
                 $heading = !empty($ch->title) ? "{$ch->title}\n" : '';
                 $parts[] = $heading . $text;
@@ -221,7 +228,7 @@ class content_extractor {
     /**
      * Extract text from mod_glossary (all entries: concept + definition).
      */
-    private static function extract_glossary(int $instance, int $courseid, \moodle_database $DB): string {
+    private static function extract_glossary(int $instance, int $courseid, int $cmid, \moodle_database $DB): string {
         $entries = $DB->get_records(
             'glossary_entries',
             ['glossaryid' => $instance, 'approved' => 1],
@@ -233,9 +240,17 @@ class content_extractor {
             return '';
         }
 
+        $context = \context_module::instance($cmid);
         $parts = [];
         foreach ($entries as $entry) {
-            $deftext = self::clean_html($entry->definition, $entry->definitionformat);
+            $deftext = self::clean_rich_text(
+                $entry->definition,
+                (int) $entry->definitionformat,
+                $context,
+                'mod_glossary',
+                'entry',
+                (int) $entry->id
+            );
             if (!empty($entry->concept) && strlen($deftext) > 10) {
                 $parts[] = "{$entry->concept}: {$deftext}";
             }
@@ -245,16 +260,81 @@ class content_extractor {
     }
 
     /**
-     * Strip HTML tags and normalize whitespace from formatted text.
+     * Extract plain text from a module intro field using Moodle's intro formatter.
+     *
+     * @param string $table
+     * @param string $modname
+     * @param int $instance
+     * @param int $courseid
+     * @param int $cmid
+     * @param \moodle_database $DB
+     * @return string
+     */
+    private static function extract_intro_module(
+        string $table,
+        string $modname,
+        int $instance,
+        int $courseid,
+        int $cmid,
+        \moodle_database $DB
+    ): string {
+        $record = $DB->get_record($table, ['id' => $instance, 'course' => $courseid], 'intro, introformat');
+        if (!$record || empty($record->intro)) {
+            return '';
+        }
+
+        $html = format_module_intro($modname, $record, $cmid, false);
+        return self::normalise_html_to_text($html);
+    }
+
+    /**
+     * Rewrite pluginfile URLs, format rich text, and normalize it to plain text.
      *
      * @param string $html Raw HTML content.
-     * @param int    $format Moodle text format constant.
-     * @return string Normalized plain text.
+     * @param int $format Moodle text format constant.
+     * @param \context_module $context
+     * @param string $component
+     * @param string $filearea
+     * @param int|null $itemid
+     * @return string
      */
-    private static function clean_html(string $html, int $format = FORMAT_HTML): string {
-        $text = strip_tags(format_text($html, $format));
-        // Normalize whitespace but preserve paragraph breaks.
+    private static function clean_rich_text(
+        string $html,
+        int $format,
+        \context_module $context,
+        string $component,
+        string $filearea,
+        ?int $itemid = null
+    ): string {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $rewritten = file_rewrite_pluginfile_urls($html, 'pluginfile.php', $context->id, $component, $filearea, $itemid);
+        $formatted = format_text($rewritten, $format, [
+            'context' => $context,
+            'noclean' => true,
+            'overflowdiv' => true,
+            'filter' => false,
+            'para' => false,
+        ]);
+
+        return self::normalise_html_to_text($formatted);
+    }
+
+    /**
+     * Strip markup and normalize whitespace from already-formatted HTML.
+     *
+     * @param string $html
+     * @return string
+     */
+    private static function normalise_html_to_text(string $html): string {
+        $text = preg_replace('/<(?:br)\s*\/?>/i', "\n", $html);
+        $text = preg_replace('/<\/(?:p|div|li|h[1-6]|tr|table|ul|ol)>/i', "\n", $text);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_replace("\xc2\xa0", ' ', $text);
+        $text = preg_replace("/\r\n?/", "\n", $text);
         $text = preg_replace('/[ \t]+/', ' ', $text);
+        $text = preg_replace('/ *\n */', "\n", $text);
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
         return trim($text);
     }

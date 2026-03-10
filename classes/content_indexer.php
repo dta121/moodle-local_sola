@@ -110,8 +110,12 @@ class content_indexer {
                     $stats['indexed']++;
                 }
             } catch (\Exception $e) {
+                $errormessage = $e->getMessage();
+                if ($e instanceof \moodle_exception && !empty($e->debuginfo)) {
+                    $errormessage .= ' [' . $e->debuginfo . ']';
+                }
                 debugging(
-                    'RAG indexing error for cmid=' . $mod['cmid'] . ': ' . $e->getMessage(),
+                    'RAG indexing error for cmid=' . $mod['cmid'] . ': ' . $errormessage,
                     DEBUG_DEVELOPER
                 );
                 $stats['errors']++;
