@@ -134,17 +134,7 @@ abstract class base_provider implements provider_interface {
             },
         ]);
 
-        // Add proxy settings from Moodle config if present.
-        global $CFG;
-        if (!empty($CFG->proxyhost)) {
-            curl_setopt($ch, CURLOPT_PROXY, $CFG->proxyhost);
-            if (!empty($CFG->proxyport)) {
-                curl_setopt($ch, CURLOPT_PROXYPORT, $CFG->proxyport);
-            }
-            if (!empty($CFG->proxyuser)) {
-                curl_setopt($ch, CURLOPT_PROXYUSERPWD, $CFG->proxyuser . ':' . ($CFG->proxypassword ?? ''));
-            }
-        }
+        \local_ai_course_assistant\curl_helper::apply_moodle_defaults($ch);
 
         curl_exec($ch);
 

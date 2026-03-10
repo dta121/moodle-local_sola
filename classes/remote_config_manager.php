@@ -64,6 +64,7 @@ class remote_config_manager {
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_USERAGENT      => 'SOLA-Moodle-Plugin/1.0',
         ]);
+        curl_helper::apply_moodle_defaults($ch);
         $body = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);

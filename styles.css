@@ -5,6 +5,8 @@
     position: fixed;
     z-index: 100000;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --aica-brand-color: var(--aica-avatar-color, #173140);
+    --aica-brand-rgb: 23, 49, 64;
 }
 
 .local-ai-course-assistant--bottom-right {
@@ -27,16 +29,71 @@
     left: 20px;
 }
 
+/* Admin settings: keep long password/unmask values from forcing horizontal overflow. */
+.path-admin .form-item .form-setting .form-password {
+    max-width: 100%;
+}
+
+.path-admin .form-item .form-setting .form-password > input.form-control,
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="editor"] .form-control {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="wrapper"] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.35rem 0.5rem;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="editor"] {
+    flex: 1 1 20rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="edit"] {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    flex: 1 1 20rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="displayvalue"] {
+    display: inline-block;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="displayvalue"] > span {
+    display: inline;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.path-admin .form-item .form-setting .form-password [data-passwordunmask="unmask"] {
+    flex: 0 0 auto;
+}
+
 /* Toggle button */
 .local-ai-course-assistant__toggle {
     width: 62px;
     height: 62px;
     border-radius: 50%;
-    border: 3px solid var(--aica-avatar-color, #4a6cf7);
+    border: 3px solid var(--aica-brand-color);
     background-color: var(--aica-avatar-fill, #ffffff) !important;
     cursor: pointer;
     padding: 0;
-    box-shadow: 0 2px 10px rgba(74, 108, 247, 0.25);
+    box-shadow: 0 2px 10px rgba(var(--aica-brand-rgb), 0.25);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     align-items: center;
@@ -58,7 +115,7 @@
 }
 
 .local-ai-course-assistant__toggle:focus-visible {
-    outline: 3px solid var(--aica-avatar-color, #4a6cf7);
+    outline: 3px solid var(--aica-brand-color);
     outline-offset: 3px;
 }
 
@@ -129,7 +186,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 9px 12px;
-    background: var(--aica-avatar-color, #4a6cf7);
+    background: var(--aica-brand-color);
     color: #fff;
     flex-shrink: 0;
     cursor: grab;
@@ -185,6 +242,11 @@
     }
 }
 
+.local-ai-course-assistant__btn-debug--active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.18);
+}
+
 .local-ai-course-assistant__header-actions button .icon,
 .local-ai-course-assistant__header-actions a .icon {
     filter: brightness(0) invert(1);
@@ -204,6 +266,76 @@
     flex-direction: column;
     gap: 8px;
     min-height: 0;
+}
+
+.aica-debug-panel {
+    flex: 0 0 auto;
+    border-top: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.aica-debug-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #eef2ff;
+    border-bottom: 1px solid #dbeafe;
+}
+
+.aica-debug-panel__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e3a8a;
+}
+
+.aica-debug-panel__copy {
+    border: 1px solid #c7d2fe;
+    background: #fff;
+    color: #3730a3;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+@media (hover: hover) {
+    .aica-debug-panel__copy:hover {
+        background: #eef2ff;
+    }
+}
+
+.aica-debug-panel__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 8px 10px 10px;
+}
+
+.aica-debug-panel__label {
+    margin: 0 0 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.aica-debug-panel__pre {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #111827;
+    color: #e5e7eb;
+    font-size: 11px;
+    line-height: 1.45;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* Message bubbles */
@@ -336,21 +468,242 @@
     border-color: #e5e7eb;
 }
 
+/* Bottom mode panels */
+.local-ai-course-assistant__voice-panel,
+.local-ai-course-assistant__history-panel {
+    flex-shrink: 0;
+}
+
+.local-ai-course-assistant__voice-panel {
+    padding: 12px 12px 0;
+}
+
+.local-ai-course-assistant__history-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px 12px 0;
+}
+
+.local-ai-course-assistant__voice-panel[hidden],
+.local-ai-course-assistant__history-panel[hidden] {
+    display: none !important;
+}
+
+.aica-mode-card,
+.aica-history-panel {
+    border: 1px solid rgba(var(--aica-brand-rgb), 0.12);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fafb 100%);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.aica-mode-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+}
+
+.aica-mode-card__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: rgba(var(--aica-brand-rgb), 0.1);
+    color: var(--aica-brand-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.aica-mode-card__body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.aica-mode-card__eyebrow,
+.aica-history-panel__eyebrow {
+    margin: 0 0 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.aica-mode-card__title,
+.aica-history-panel__title {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.2;
+    color: #12222c;
+}
+
+.aica-mode-card__text,
+.aica-mode-card__status,
+.aica-history-panel__subtitle,
+.aica-history-panel__message,
+.aica-history-panel__empty {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #52616c;
+}
+
+.aica-mode-card__status {
+    margin-top: 8px;
+    color: var(--aica-brand-color);
+    font-weight: 600;
+}
+
+.aica-mode-card__actions {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+}
+
+.aica-mode-card__primary,
+.aica-history-panel__refresh {
+    border: none;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.aica-mode-card__primary {
+    min-width: 138px;
+    padding: 11px 14px;
+    background: var(--aica-brand-color);
+    color: #fff;
+    box-shadow: 0 10px 20px rgba(var(--aica-brand-rgb), 0.18);
+}
+
+@media (hover: hover) {
+    .aica-mode-card__primary:hover:not(:disabled),
+    .aica-history-panel__refresh:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+}
+
+.aica-mode-card__primary:disabled {
+    cursor: not-allowed;
+    background: #cbd5e1;
+    box-shadow: none;
+}
+
+.local-ai-course-assistant__voice-panel--disabled .aica-mode-card__status {
+    color: #7c8a96;
+}
+
+.aica-history-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding: 14px;
+}
+
+.aica-history-panel__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.aica-history-panel__subtitle {
+    margin-top: 8px;
+}
+
+.aica-history-panel__refresh {
+    padding: 8px 12px;
+    background: rgba(var(--aica-brand-rgb), 0.08);
+    color: var(--aica-brand-color);
+    flex: 0 0 auto;
+}
+
+.aica-history-panel__refresh:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.aica-history-panel__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.aica-history-panel__item {
+    padding: 11px 12px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.aica-history-panel__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.aica-history-panel__role {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.aica-history-panel__role--assistant {
+    background: rgba(var(--aica-brand-rgb), 0.1);
+    color: var(--aica-brand-color);
+}
+
+.aica-history-panel__role--user {
+    background: #eef2f7;
+    color: #41515d;
+}
+
+.aica-history-panel__time {
+    font-size: 11px;
+    color: #8a97a5;
+}
+
+.aica-history-panel__empty {
+    padding: 18px 6px;
+    text-align: center;
+}
+
 /* Input area */
 .local-ai-course-assistant__input-area {
     display: flex;
     align-items: flex-end;
-    padding: 6px 10px;
+    padding: 10px 12px 6px;
     border-top: 1px solid #e5e7eb;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .local-ai-course-assistant__input {
     flex: 1;
     border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 7px 10px;
+    border-radius: 16px;
+    padding: 10px 14px;
     font-size: 16px;
     resize: none;
     max-height: 120px;
@@ -358,25 +711,27 @@
     outline: none;
     transition: border-color 0.15s;
     font-family: inherit;
+    background: #f7fafc;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .local-ai-course-assistant__input:focus {
-    border-color: #4a6cf7;
+    border-color: var(--aica-brand-color);
 }
 
 .local-ai-course-assistant__btn-send {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
     border: none;
-    background: #4a6cf7;
+    background: var(--aica-brand-color);
     color: #fff;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.15s ease;
 }
 
 .local-ai-course-assistant__btn-send:disabled {
@@ -386,7 +741,8 @@
 
 @media (hover: hover) {
     .local-ai-course-assistant__btn-send:not(:disabled):hover {
-        background: #3b5de7;
+        background: #10232f;
+        transform: translateY(-1px);
     }
 }
 
@@ -397,14 +753,16 @@
 }
 
 .local-ai-course-assistant__hint {
-    padding: 0 12px 6px;
+    padding: 0 16px 8px;
     font-size: 11px;
     color: #9ca3af;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    background: #fff;
 }
+
 .aica-hint-right {
     display: flex;
     align-items: center;
@@ -422,6 +780,95 @@
 }
 .aica-feedback-link:hover {
     color: #6b7280;
+}
+
+.local-ai-course-assistant__bottom-nav {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    padding: 8px 8px 10px;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+    flex-shrink: 0;
+}
+
+.local-ai-course-assistant__mode-btn {
+    flex: 1 1 0;
+    border: none;
+    border-radius: 16px;
+    background: transparent;
+    color: #72808d;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.local-ai-course-assistant__mode-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: #f2f5f7;
+    color: #6b7280;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.local-ai-course-assistant__mode-label {
+    display: block;
+    white-space: nowrap;
+}
+
+.local-ai-course-assistant__mode-btn--active {
+    color: var(--aica-brand-color);
+    background: rgba(var(--aica-brand-rgb), 0.06);
+}
+
+.local-ai-course-assistant__mode-btn--active .local-ai-course-assistant__mode-icon {
+    background: rgba(var(--aica-brand-rgb), 0.12);
+    color: var(--aica-brand-color);
+    box-shadow: inset 0 0 0 1px rgba(var(--aica-brand-rgb), 0.12);
+}
+
+.local-ai-course-assistant__mode-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+@media (hover: hover) {
+    .local-ai-course-assistant__mode-btn:hover:not(:disabled) {
+        background: rgba(var(--aica-brand-rgb), 0.05);
+        color: var(--aica-brand-color);
+    }
+
+    .local-ai-course-assistant__mode-btn:hover:not(:disabled) .local-ai-course-assistant__mode-icon {
+        background: rgba(var(--aica-brand-rgb), 0.1);
+        color: var(--aica-brand-color);
+    }
+}
+
+.local-ai-course-assistant__drawer--mode-voice .local-ai-course-assistant__starters,
+.local-ai-course-assistant__drawer--mode-voice .local-ai-course-assistant__input-area,
+.local-ai-course-assistant__drawer--mode-voice .local-ai-course-assistant__hint {
+    display: none;
+}
+
+.local-ai-course-assistant__drawer--mode-history .local-ai-course-assistant__messages,
+.local-ai-course-assistant__drawer--mode-history .local-ai-course-assistant__starters,
+.local-ai-course-assistant__drawer--mode-history .local-ai-course-assistant__typing,
+.local-ai-course-assistant__drawer--mode-history .local-ai-course-assistant__input-area,
+.local-ai-course-assistant__drawer--mode-history .local-ai-course-assistant__hint,
+.local-ai-course-assistant__drawer--mode-history .aica-voice-bar {
+    display: none;
 }
 
 /* Timestamp label on messages (shown on hover) */
@@ -635,6 +1082,53 @@
         padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
 
+    .local-ai-course-assistant__voice-panel,
+    .local-ai-course-assistant__history-panel {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .aica-mode-card {
+        flex-direction: column;
+    }
+
+    .aica-mode-card__actions {
+        width: 100%;
+    }
+
+    .aica-mode-card__primary {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .aica-history-panel {
+        padding: 12px;
+    }
+
+    .local-ai-course-assistant__hint {
+        padding: 0 12px 6px;
+    }
+
+    .local-ai-course-assistant__bottom-nav {
+        gap: 2px;
+        padding: 6px 6px max(10px, env(safe-area-inset-bottom));
+    }
+
+    .local-ai-course-assistant__mode-btn {
+        border-radius: 14px;
+        padding: 8px 4px 9px;
+        font-size: 10px;
+    }
+
+    .local-ai-course-assistant__mode-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .local-ai-course-assistant__scroll-down {
+        bottom: calc(136px + env(safe-area-inset-bottom));
+    }
+
     /* Lift the container above the safe area (iOS home indicator, browser chrome) */
     .local-ai-course-assistant--bottom-right,
     .local-ai-course-assistant--bottom-left {
@@ -817,7 +1311,7 @@
     height: 52px;
     border-radius: 10px 0 0 10px;
     border: none;
-    background: var(--aica-avatar-color, #4a6cf7) !important;
+    background: var(--aica-brand-color) !important;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.12);
     pointer-events: auto;
     z-index: 100001;
@@ -825,6 +1319,128 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Saylor brand accent overrides */
+.local-ai-course-assistant__message--user .local-ai-course-assistant__message-content,
+.local-ai-course-assistant__btn-send,
+.local-ai-course-assistant__welcome-cta,
+.aica-quiz-setup__count-btn--selected,
+.aica-quiz-setup__start,
+.aica-settings-panel__save,
+.aica-av-trio__btn--active,
+.aica-svg-picker__done,
+.aica-voice-bar__wave span {
+    background: var(--aica-brand-color);
+    border-color: var(--aica-brand-color);
+}
+
+.local-ai-course-assistant__message--assistant .local-ai-course-assistant__message-content a,
+.aica-starter-icon,
+.aica-quiz__retake,
+.aica-word--active,
+.aica-settings-panel__lang-opt--active,
+.aica-starter-voice__btn--recording,
+.aica-starter-voice__btn:hover {
+    color: var(--aica-brand-color);
+}
+
+.local-ai-course-assistant__input:focus,
+.aica-quiz__retake,
+.aica-feedback-textarea:focus,
+.aica-settings-panel__avatar-opt--selected,
+.aica-avatar-option--selected,
+.aica-starter-voice__btn--recording,
+.aica-starter-voice__btn:hover {
+    border-color: var(--aica-brand-color);
+}
+
+.local-ai-course-assistant__welcome-avatar {
+    border-color: rgba(var(--aica-brand-rgb), 0.2);
+}
+
+.aica-settings-panel__speed-slider {
+    accent-color: var(--aica-brand-color);
+}
+
+.aica-word--active {
+    background: rgba(var(--aica-brand-rgb), 0.18);
+}
+
+.aica-settings-panel__lang-opt--active,
+.aica-settings-panel__avatar-opt--selected,
+.aica-starter-voice__btn--recording,
+.aica-starter-voice__btn:hover {
+    background: rgba(var(--aica-brand-rgb), 0.08);
+}
+
+.aica-feedback-textarea:focus {
+    box-shadow: 0 0 0 2px rgba(var(--aica-brand-rgb), 0.15);
+}
+
+.aica-resize-handle--n {
+    background: linear-gradient(to bottom, rgba(var(--aica-brand-rgb), 0.25), transparent);
+}
+
+.aica-resize-handle--w {
+    background: linear-gradient(to right, rgba(var(--aica-brand-rgb), 0.25), transparent);
+}
+
+.aica-resize-handle--nw {
+    background: rgba(var(--aica-brand-rgb), 0.2);
+}
+
+@media (hover: hover) {
+    .aica-quiz-setup__count-btn:hover,
+    .aica-av-trio__btn:hover {
+        border-color: rgba(var(--aica-brand-rgb), 0.25);
+        color: var(--aica-brand-color);
+    }
+
+    .aica-av-trio__btn:hover {
+        background: rgba(var(--aica-brand-rgb), 0.08);
+    }
+
+    .local-ai-course-assistant__btn-mic:hover,
+    .aica-starter-voice__btn:hover {
+        color: var(--aica-brand-color);
+        background: rgba(var(--aica-brand-rgb), 0.08);
+    }
+
+    .local-ai-course-assistant__starter:hover {
+        border-color: rgba(var(--aica-brand-rgb), 0.25);
+        box-shadow: 0 2px 8px rgba(var(--aica-brand-rgb), 0.1);
+        color: var(--aica-brand-color);
+    }
+
+    .local-ai-course-assistant__starter:hover .aica-starter-icon {
+        color: var(--aica-brand-color);
+    }
+
+    .aica-quiz__retake:hover {
+        background: var(--aica-brand-color);
+        color: #fff;
+    }
+}
+
+@keyframes aica-avatar-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.35); }
+    70%  { box-shadow: 0 0 0 8px rgba(var(--aica-brand-rgb), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0); }
+}
+
+@keyframes aica-avatar-speak-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.6); transform: scale(1); }
+    25%  { box-shadow: 0 0 0 14px rgba(var(--aica-brand-rgb), 0.25); transform: scale(1.08); }
+    50%  { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.4); transform: scale(1); }
+    75%  { box-shadow: 0 0 0 10px rgba(var(--aica-brand-rgb), 0.15); transform: scale(1.05); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.6); transform: scale(1); }
+}
+
+@keyframes aica-avatar-record-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.7); }
+    50%  { box-shadow: 0 0 0 12px rgba(var(--aica-brand-rgb), 0.15); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--aica-brand-rgb), 0.7); }
 }
 
 .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle .aica-avatar-svg {
@@ -1342,7 +1958,7 @@
 
 .local-ai-course-assistant__scroll-down {
     position: absolute;
-    bottom: 64px; /* sit above the input area */
+    bottom: 122px; /* sit above the input area + bottom nav */
     left: 50%;
     transform: translateX(-50%);
     display: none;
@@ -1853,7 +2469,11 @@
 .local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__messages,
 .local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__typing,
 .local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__starters,
-.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__input-area {
+.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__input-area,
+.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__voice-panel,
+.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__history-panel,
+.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__hint,
+.local-ai-course-assistant__drawer--welcome .local-ai-course-assistant__bottom-nav {
     display: none;
 }
 

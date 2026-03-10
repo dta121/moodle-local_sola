@@ -68,6 +68,41 @@ class hook_callbacks {
             return;
         }
 
+        $pagetype = $PAGE->pagetype ?? '';
+        $modinfo = get_fast_modinfo($courseid);
+
+        // Detect current module context (resource/activity page).
+        $currentpageid = 0;
+        $currentpagetitle = '';
+        $modname = '';
+        if ($context->contextlevel === CONTEXT_MODULE) {
+            $currentpageid = (int)($context->instanceid ?? 0);
+
+            if (!empty($PAGE->cm)) {
+                $currentpageid = (int)($PAGE->cm->id ?? $currentpageid);
+                $currentpagetitle = (string)($PAGE->cm->name ?? '');
+                $modname = (string)($PAGE->cm->modname ?? '');
+            }
+
+            if ($currentpageid > 0) {
+                try {
+                    $currentcm = $modinfo->get_cm($currentpageid);
+                    if (empty($currentpagetitle) && !empty($currentcm->name)) {
+                        $currentpagetitle = (string)$currentcm->name;
+                    }
+                    if (empty($modname) && !empty($currentcm->modname)) {
+                        $modname = (string)$currentcm->modname;
+                    }
+                } catch (\Exception $e) {
+                    // Leave fallbacks below to handle missing cm info safely.
+                }
+            }
+
+            if (empty($currentpagetitle) && !empty($PAGE->activityname)) {
+                $currentpagetitle = trim(strip_tags((string)$PAGE->activityname));
+            }
+        }
+
         // Detect role: administrator > academic_support > student.
         if (has_capability('local/ai_course_assistant:manage', $coursecontext)) {
             $userrole = 'administrator';
@@ -75,6 +110,16 @@ class hook_callbacks {
             $userrole = 'academic_support';
         } else {
             $userrole = 'student';
+        }
+
+        $hideonquizforstudents = (bool)get_config('local_ai_course_assistant', 'hide_on_quiz_for_students');
+        $hideonquizforstaff = (bool)get_config('local_ai_course_assistant', 'hide_on_quiz_for_staff');
+        $isquizpage = ($modname === 'quiz') || (strpos((string)$pagetype, 'mod-quiz-') === 0);
+        if ($isquizpage && (
+            ($hideonquizforstudents && $userrole === 'student') ||
+            ($hideonquizforstaff && $userrole !== 'student')
+        )) {
+            return;
         }
 
         // Get config values.
@@ -110,7 +155,6 @@ class hook_callbacks {
         $coursesettingsurl = new \moodle_url('/local/ai_course_assistant/course_settings.php', ['courseid' => $courseid]);
 
         // Build quiz topics from visible course sections.
-        $modinfo = get_fast_modinfo($courseid);
         $quizsections = [];
         foreach ($modinfo->get_section_info_all() as $s) {
             if ($s->visible && ($name = get_section_name($courseid, $s)) && $name !== 'General') {
@@ -137,17 +181,6 @@ class hook_callbacks {
             if ($cm->uservisible && !empty($cm->name)) {
                 $moduletitles[] = ['name' => $cm->name];
             }
-        }
-
-        // Detect current module context (resource/activity page).
-        $currentpageid = 0;
-        $currentpagetitle = '';
-        $modname = '';
-        $pagetype = $PAGE->pagetype ?? '';
-        if ($context->contextlevel === CONTEXT_MODULE && !empty($PAGE->cm)) {
-            $currentpageid    = (int)$PAGE->cm->id;
-            $currentpagetitle = (string)($PAGE->cm->name ?? '');
-            $modname          = (string)($PAGE->cm->modname ?? '');
         }
 
         // Lock SOLA during summative quiz view/attempt pages.
@@ -204,6 +237,16 @@ class hook_callbacks {
             }
         }
 
+        $contextdebugvisible = (bool)get_config('local_ai_course_assistant', 'context_debug_enabled') && $cansiteconfig;
+        $contextlevelname = ($context->contextlevel === CONTEXT_MODULE) ? 'module' : 'course';
+        $serverpageurl = $PAGE->url ? $PAGE->url->out(false) : '';
+        $serverpagetitle = trim(strip_tags((string)($PAGE->title ?? '')));
+        $serverpageheading = trim(strip_tags((string)($PAGE->heading ?? '')));
+        $avatarcolor = trim((string)(get_config('local_ai_course_assistant', 'avatar_color') ?: ''));
+        if ($avatarcolor === '' || strcasecmp($avatarcolor, '#4a6cf7') === 0) {
+            $avatarcolor = '#173140';
+        }
+
         // Render template.
         $templatedata = [
             'courseid'           => $courseid,
@@ -231,7 +274,7 @@ class hook_callbacks {
             'realtimeenabled'         => $realtimeenabled,
             'ellpronunciationenabled' => $ellpronunciationenabled,
             'ttsurl'             => $ttsurl,
-            'avatarcolor'        => get_config('local_ai_course_assistant', 'avatar_color') ?: '#4a6cf7',
+            'avatarcolor'        => $avatarcolor,
             'avatarfill'         => get_config('local_ai_course_assistant', 'avatar_fill') ?: '#ffffff',
             'displaymode'        => $displaymode,
             'displayname'        => get_config('local_ai_course_assistant', 'display_name') ?: 'SOLA',
@@ -241,6 +284,11 @@ class hook_callbacks {
             'coursename'         => $course->fullname,
             'emailreminders'     => (bool)get_config('local_ai_course_assistant', 'reminders_email_enabled'),
             'completionpct'      => $completionpct,
+            'contextdebugvisible'=> $contextdebugvisible,
+            'contextlevelname'   => $contextlevelname,
+            'serverpageurl'      => $serverpageurl,
+            'serverpagetitle'    => $serverpagetitle,
+            'serverpageheading'  => $serverpageheading,
         ];
 
         $html = $OUTPUT->render_from_template('local_ai_course_assistant/chat_widget', $templatedata);

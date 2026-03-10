@@ -60,6 +60,7 @@ class context_builder {
         global $DB;
 
         $ragmode = !empty($retrieved_chunks);
+        $prompt = '';
 
         // Use cache only when NOT in RAG mode (RAG content is query-specific).
         if (!$ragmode) {
@@ -67,14 +68,15 @@ class context_builder {
             $cachekey = "prompt_{$courseid}_{$userid}_" . ($lang ?: 'auto');
             $cached = $cache->get($cachekey);
             if ($cached !== false) {
-                return $cached;
+                $prompt = $cached;
             }
         }
 
-        $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
-        $userrecord = $DB->get_record('user', ['id' => $userid], 'firstname', MUST_EXIST);
-        $firstname = $userrecord->firstname;
-        $coursecontext = \context_course::instance($courseid);
+        if ($prompt === '') {
+            $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
+            $userrecord = $DB->get_record('user', ['id' => $userid], 'firstname', MUST_EXIST);
+            $firstname = $userrecord->firstname;
+            $coursecontext = \context_course::instance($courseid);
 
         // Detect role: administrator > academic_support > student.
         if (has_capability('local/ai_course_assistant:manage', $coursecontext, $userid)) {
@@ -182,21 +184,44 @@ class context_builder {
         }
 
         // Truncate if needed.
-        $prompt = self::truncate_prompt($prompt, $courseid);
+        $prompt = self::truncate_prompt($prompt, self::MAX_PROMPT_LENGTH);
 
         // Cache only for non-RAG mode (RAG prompts are query-specific).
         if (!$ragmode) {
             $cache->set($cachekey, $prompt);
         }
-
-        // Append current-page context AFTER caching — it is per-request, not per-course.
-        if (!empty($pagetitle)) {
-            $prompt .= "\n\n## Current Page\n"
-                . "The student is currently viewing the resource or activity titled: \"{$pagetitle}\". "
-                . "When relevant, tailor your explanations and examples to this specific page or topic.";
         }
 
-        return $prompt;
+        // Append current-page context AFTER caching — it is per-request, not per-course.
+        $currentpagecontext = '';
+        $pagecontent = '';
+        if ($pageid > 0) {
+            $pagecontent = trim(self::get_module_content($pageid));
+        }
+        if (!empty($pagetitle) || !empty($pagecontent)) {
+            $currentpagecontext = "\n\n## Current Page";
+            if (!empty($pagetitle)) {
+                $currentpagecontext .= "\n"
+                    . "The student is currently viewing the resource or activity titled: \"{$pagetitle}\". "
+                    . "If the student refers to \"this page\", \"this book\", \"this chapter\", "
+                    . "\"this activity\", or asks for the title of what they are currently viewing, "
+                    . "assume they mean this item unless they clearly name a different one. "
+                    . "Tailor your explanations and examples to this specific page or topic when relevant.";
+            }
+            if (!empty($pagecontent)) {
+                $currentpagecontext .= "\n\n### Current Page Content Excerpt\n"
+                    . $pagecontent
+                    . "\n\nUse this current-page excerpt as the highest-priority context when the student is asking about what is on this page right now.";
+            }
+        }
+
+        if (!empty($currentpagecontext)) {
+            $maxbasechars = max(4000, self::MAX_PROMPT_LENGTH - strlen($currentpagecontext));
+            $prompt = self::truncate_prompt($prompt, $maxbasechars);
+            $prompt .= $currentpagecontext;
+        }
+
+        return self::truncate_prompt($prompt, self::MAX_PROMPT_LENGTH);
     }
 
     /**
@@ -216,7 +241,7 @@ class context_builder {
      * @param int $cmid Course module ID
      * @return string Extracted text, or empty string if unavailable/unsupported.
      */
-    public static function get_module_content(int $cmid): string {
+    public static function get_module_content(int $cmid, string $pageheading = ''): string {
         global $DB;
 
         $maxchars = 6000;
@@ -246,6 +271,23 @@ class context_builder {
                     'id, title, content, contentformat'
                 );
                 if ($chapters) {
+                    $normalizedheading = self::normalize_page_context_label($pageheading);
+                    if ($normalizedheading !== '') {
+                        foreach ($chapters as $ch) {
+                            $normalizedtitle = self::normalize_page_context_label($ch->title ?? '');
+                            if ($normalizedtitle === '' || $normalizedtitle !== $normalizedheading) {
+                                continue;
+                            }
+
+                            $text = strip_tags(format_text($ch->content, $ch->contentformat));
+                            $text = preg_replace('/\s+/', ' ', trim($text));
+                            if (strlen($text) > 50) {
+                                $heading = !empty($ch->title) ? "{$ch->title}: " : '';
+                                return substr($heading . $text, 0, $maxchars);
+                            }
+                        }
+                    }
+
                     $parts = [];
                     foreach ($chapters as $ch) {
                         $text = strip_tags(format_text($ch->content, $ch->contentformat));
@@ -265,6 +307,108 @@ class context_builder {
         }
 
         return '';
+    }
+
+    /**
+     * Append or replace the current-page block on a built prompt.
+     *
+     * This is request-scoped and should be applied after any cached base prompt
+     * has been loaded and after any per-request tuning instructions are added.
+     *
+     * @param string $prompt
+     * @param int $pageid
+     * @param string $pagetitle
+     * @param string $pageheading
+     * @param string $clienttitle
+     * @param string $modname
+     * @return string
+     */
+    public static function append_current_page_context(
+        string $prompt,
+        int $pageid = 0,
+        string $pagetitle = '',
+        string $pageheading = '',
+        string $clienttitle = '',
+        string $modname = ''
+    ): string {
+        $currentpagecontext = self::build_current_page_context($pageid, $pagetitle, $pageheading, $clienttitle, $modname);
+        if ($currentpagecontext === '') {
+            return self::truncate_prompt($prompt, self::MAX_PROMPT_LENGTH);
+        }
+
+        $prompt = preg_replace('/\n\n## Current Page[\s\S]*?(?=\n\n## |\z)/', '', $prompt);
+        $prompt = rtrim($prompt);
+
+        $maxbasechars = max(4000, self::MAX_PROMPT_LENGTH - strlen($currentpagecontext));
+        $prompt = self::truncate_prompt($prompt, $maxbasechars);
+
+        return self::truncate_prompt($prompt . $currentpagecontext, self::MAX_PROMPT_LENGTH);
+    }
+
+    /**
+     * Build the request-scoped current-page block.
+     *
+     * @param int $pageid
+     * @param string $pagetitle
+     * @param string $pageheading
+     * @param string $clienttitle
+     * @param string $modname
+     * @return string
+     */
+    private static function build_current_page_context(
+        int $pageid,
+        string $pagetitle = '',
+        string $pageheading = '',
+        string $clienttitle = '',
+        string $modname = ''
+    ): string {
+        $pagetitle = trim($pagetitle);
+        $pageheading = trim($pageheading);
+        $clienttitle = trim($clienttitle);
+        $modname = trim($modname);
+        $pagecontent = $pageid > 0 ? trim(self::get_module_content($pageid, $pageheading)) : '';
+
+        if ($pagetitle === '' && $pageheading === '' && $clienttitle === '' && $pagecontent === '') {
+            return '';
+        }
+
+        $lines = [];
+        if ($pagetitle !== '') {
+            $lines[] = 'Current activity or book title: "' . $pagetitle . '".';
+        }
+        if ($pageheading !== '') {
+            $lines[] = 'Current visible page or chapter heading: "' . $pageheading . '".';
+        } else if ($clienttitle !== '') {
+            $lines[] = 'Browser page title: "' . $clienttitle . '".';
+        }
+        if ($modname !== '') {
+            $lines[] = 'Current activity type: ' . $modname . '.';
+        }
+
+        $lines[] = 'If the student refers to "this page", "this book", "this chapter", "this activity", '
+            . 'or asks what is on the current page, answer from this current page context first rather than from the overall course.';
+
+        $context = "\n\n## Current Page\n" . implode(' ', $lines);
+        if ($pagecontent !== '') {
+            $context .= "\n\n### Current Page Content Excerpt\n"
+                . $pagecontent
+                . "\n\nUse this current-page excerpt as the highest-priority context for questions about the current page.";
+        }
+
+        return $context;
+    }
+
+    /**
+     * Normalize a page title or heading for rough comparisons.
+     *
+     * @param string $label
+     * @return string
+     */
+    private static function normalize_page_context_label(string $label): string {
+        $label = \core_text::strtolower(trim($label));
+        $label = preg_replace('/\s+/', ' ', $label);
+        $label = preg_replace('/[^a-z0-9 ]/', '', $label);
+        return trim($label);
     }
 
     /**
@@ -645,22 +789,22 @@ class context_builder {
      * Strategy: drop activity details first, then section summaries.
      *
      * @param string $prompt
-     * @param int $courseid
+     * @param int $maxchars
      * @return string
      */
-    private static function truncate_prompt(string $prompt, int $courseid): string {
-        if (strlen($prompt) <= self::MAX_PROMPT_LENGTH) {
+    private static function truncate_prompt(string $prompt, int $maxchars): string {
+        if (strlen($prompt) <= $maxchars) {
             return $prompt;
         }
 
         // Try removing activity lines ("  Activities: ..." lines).
         $prompt = preg_replace('/\n  Activities: [^\n]+/', '', $prompt);
 
-        if (strlen($prompt) <= self::MAX_PROMPT_LENGTH) {
+        if (strlen($prompt) <= $maxchars) {
             return $prompt;
         }
 
         // Hard truncate as last resort.
-        return substr($prompt, 0, self::MAX_PROMPT_LENGTH - 3) . '...';
+        return substr($prompt, 0, $maxchars - 3) . '...';
     }
 }

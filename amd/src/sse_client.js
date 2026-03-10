@@ -33,6 +33,7 @@ define([], function() {
      * @param {Object} body POST body data
      * @param {Object} callbacks Callback functions
      * @param {Function} callbacks.onToken Called with each token string
+     * @param {Function} callbacks.onDebug Called with each debug payload object
      * @param {Function} callbacks.onDone Called when stream completes
      * @param {Function} callbacks.onError Called on error with error message string
      * @returns {AbortController} Controller to cancel the stream
@@ -74,6 +75,8 @@ define([], function() {
                                 const data = JSON.parse(buffer.trim().substring(6));
                                 if (data.done) {
                                     callbacks.onDone(data);
+                                } else if (data.debug !== undefined && callbacks.onDebug) {
+                                    callbacks.onDebug(data.debug);
                                 } else if (data.token !== undefined) {
                                     callbacks.onToken(data.token);
                                 }
@@ -113,6 +116,13 @@ define([], function() {
                             if (data.done) {
                                 callbacks.onDone(data);
                                 return;
+                            }
+
+                            if (data.debug !== undefined) {
+                                if (callbacks.onDebug) {
+                                    callbacks.onDebug(data.debug);
+                                }
+                                continue;
                             }
 
                             if (data.token !== undefined) {

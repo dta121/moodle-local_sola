@@ -529,6 +529,8 @@ define([
         // the preset <img> is always shown and the white fill shows through.
         try { localStorage.removeItem(AVATAR_KEY); } catch (e) { /**/ }
         initSVGAvatars();
+        renderHistoryPanel([]);
+        setBottomMode('chat');
     };
 
     /**
@@ -1704,6 +1706,9 @@ define([
             expandBtn: expandBtn,
             micBtn: micBtn,
             langBtn: langBtn,
+            modeButtons: root.querySelectorAll('.local-ai-course-assistant__mode-btn'),
+            voiceStartBtn: root.querySelector('.aica-voice-panel__start'),
+            historyRefreshBtn: root.querySelector('.aica-history-panel__refresh'),
         };
     };
 
@@ -1892,6 +1897,180 @@ define([
         if (starters) {
             starters.style.display = '';
         }
+    };
+
+    /**
+     * Switch the drawer between chat, voice, and history modes.
+     *
+     * @param {string} mode
+     */
+    const setBottomMode = function(mode) {
+        if (!root || !drawer) {
+            return;
+        }
+        const normalized = ['chat', 'voice', 'history'].indexOf(mode) !== -1 ? mode : 'chat';
+        ['chat', 'voice', 'history'].forEach(function(name) {
+            drawer.classList.toggle('local-ai-course-assistant__drawer--mode-' + name, name === normalized);
+        });
+        root.querySelectorAll('.local-ai-course-assistant__mode-btn').forEach(function(btn) {
+            const active = btn.dataset.mode === normalized;
+            btn.classList.toggle('local-ai-course-assistant__mode-btn--active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        const voicePanel = root.querySelector('.local-ai-course-assistant__voice-panel');
+        const historyPanel = root.querySelector('.local-ai-course-assistant__history-panel');
+        if (voicePanel) {
+            voicePanel.hidden = normalized !== 'voice';
+        }
+        if (historyPanel) {
+            historyPanel.hidden = normalized !== 'history';
+        }
+    };
+
+    /**
+     * Enable or disable the bottom mode buttons.
+     *
+     * @param {boolean} enabled
+     */
+    const setModeButtonsEnabled = function(enabled) {
+        if (!root) {
+            return;
+        }
+        root.querySelectorAll('.local-ai-course-assistant__mode-btn').forEach(function(btn) {
+            btn.disabled = !enabled;
+        });
+    };
+
+    /**
+     * Update the voice panel copy and CTA state.
+     *
+     * @param {{title?:string,text?:string,status?:string,buttonText?:string,disabled?:boolean}} config
+     */
+    const configureVoicePanel = function(config) {
+        if (!root) {
+            return;
+        }
+        const panel = root.querySelector('.local-ai-course-assistant__voice-panel');
+        if (!panel) {
+            return;
+        }
+        const titleEl = panel.querySelector('.aica-mode-card__title');
+        const textEl = panel.querySelector('.aica-mode-card__text');
+        const statusEl = panel.querySelector('.aica-mode-card__status');
+        const startBtn = panel.querySelector('.aica-voice-panel__start');
+        if (config.title !== undefined && titleEl) {
+            titleEl.textContent = config.title;
+        }
+        if (config.text !== undefined && textEl) {
+            textEl.textContent = config.text;
+        }
+        if (config.status !== undefined && statusEl) {
+            statusEl.textContent = config.status;
+        }
+        if (config.buttonText !== undefined && startBtn) {
+            startBtn.textContent = config.buttonText;
+        }
+        if (config.disabled !== undefined) {
+            panel.classList.toggle('local-ai-course-assistant__voice-panel--disabled', !!config.disabled);
+            if (startBtn) {
+                startBtn.disabled = !!config.disabled;
+            }
+        }
+    };
+
+    /**
+     * Format a history timestamp for the compact transcript panel.
+     *
+     * @param {number|string|null} ts
+     * @returns {string}
+     */
+    const formatHistoryTimestamp = function(ts) {
+        if (!ts) {
+            return '';
+        }
+        const date = new Date(ts);
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+        return date.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    };
+
+    /**
+     * Render the compact chat history panel.
+     *
+     * @param {Array} messages
+     */
+    const renderHistoryPanel = function(messages) {
+        if (!root) {
+            return;
+        }
+        const panel = root.querySelector('.local-ai-course-assistant__history-panel');
+        const list = panel ? panel.querySelector('.aica-history-panel__list') : null;
+        if (!panel || !list) {
+            return;
+        }
+
+        list.innerHTML = '';
+
+        const items = (messages || []).map(function(msg) {
+            const rawText = (msg.text !== undefined ? msg.text : msg.message) || '';
+            const cleanText = rawText
+                .replace(/\n*\[SOLA_NEXT\][\s\S]*?\[\/SOLA_NEXT\]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return {
+                role: msg.role || 'assistant',
+                text: cleanText,
+                timestamp: msg.timestamp || msg.timecreated || null,
+            };
+        }).filter(function(msg) {
+            return !!msg.text;
+        }).slice(-18).reverse();
+
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'aica-history-panel__empty';
+            empty.textContent = panel.dataset.emptyLabel || 'Your conversation history will appear here.';
+            list.appendChild(empty);
+            return;
+        }
+
+        const youLabel = panel.dataset.youLabel || 'You';
+        const assistantLabel = panel.dataset.assistantLabel || 'SOLA';
+
+        items.forEach(function(msg) {
+            const entry = document.createElement('div');
+            entry.className = 'aica-history-panel__item';
+
+            const meta = document.createElement('div');
+            meta.className = 'aica-history-panel__meta';
+
+            const role = document.createElement('span');
+            role.className = 'aica-history-panel__role aica-history-panel__role--' + msg.role;
+            role.textContent = msg.role === 'user' ? youLabel : assistantLabel;
+            meta.appendChild(role);
+
+            const stamp = formatHistoryTimestamp(msg.timestamp);
+            if (stamp) {
+                const time = document.createElement('span');
+                time.className = 'aica-history-panel__time';
+                time.textContent = stamp;
+                meta.appendChild(time);
+            }
+
+            const text = document.createElement('p');
+            text.className = 'aica-history-panel__message';
+            text.textContent = msg.text.length > 180 ? msg.text.slice(0, 177).trim() + '...' : msg.text;
+
+            entry.appendChild(meta);
+            entry.appendChild(text);
+            list.appendChild(entry);
+        });
     };
 
     /**
@@ -3336,6 +3515,10 @@ define([
         showQuiz: showQuiz,
         hideStarters: hideStarters,
         showStarters: showStarters,
+        setBottomMode: setBottomMode,
+        setModeButtonsEnabled: setModeButtonsEnabled,
+        configureVoicePanel: configureVoicePanel,
+        renderHistoryPanel: renderHistoryPanel,
         showTopicPicker: showTopicPicker,
         hideTopicPicker: hideTopicPicker,
         wasToggleDragged: wasToggleDragged,

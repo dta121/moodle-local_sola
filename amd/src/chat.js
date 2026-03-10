@@ -72,6 +72,385 @@ define([
     let sessionMessageCount = 0;
     /** @type {boolean} Whether we've already shown a study break nudge this session */
     let breakNudgeShown = false;
+    /** @type {boolean} Whether admin context debug inspector is enabled for this user */
+    let contextDebugEnabled = false;
+    /** @type {{browser:Object|null,lastRequest:Object|null,lastServer:Object|null}} */
+    let contextDebugState = {
+        browser: null,
+        lastRequest: null,
+        lastServer: null,
+    };
+    /** @type {'chat'|'voice'|'history'} */
+    let activeBottomMode = 'chat';
+    /** @type {Array<{role:string,text:string,timestamp:number|null}>} */
+    let conversationHistory = [];
+    /** @type {boolean} Whether a history refresh request is in flight */
+    let historyRefreshPending = false;
+
+    /**
+     * Get the visible page heading for debug purposes.
+     *
+     * @returns {string}
+     */
+    const getContextDebugHeading = function() {
+        const heading = document.querySelector('h1');
+        return heading ? heading.textContent.trim() : '';
+    };
+
+    /**
+     * Build a snapshot of the current page state visible to the browser and widget.
+     *
+     * @param {HTMLElement} rootEl
+     * @returns {Object}
+     */
+    const buildContextDebugBrowserSnapshot = function(rootEl) {
+        return {
+            browserUrl: window.location.href,
+            browserTitle: document.title || '',
+            browserHeading: getContextDebugHeading(),
+            bodyClasses: document.body ? document.body.className : '',
+            widgetCapture: {
+                currentPageId: currentPageId || null,
+                currentPageTitle: currentPageTitle || null,
+                modName: rootEl.dataset.modname || null,
+                pageType: rootEl.dataset.pagetype || null,
+                contextLevel: rootEl.dataset.contextLevel || null,
+                serverPageUrl: rootEl.dataset.serverPageUrl || null,
+                serverPageTitle: rootEl.dataset.serverPageTitle || null,
+                serverPageHeading: rootEl.dataset.serverPageHeading || null,
+            },
+        };
+    };
+
+    /**
+     * Write a JSON payload into one section of the debug panel.
+     *
+     * @param {HTMLElement|null} el
+     * @param {Object|null} payload
+     * @param {string} emptyText
+     */
+    const setContextDebugBlock = function(el, payload, emptyText) {
+        if (!el) {
+            return;
+        }
+        if (!payload || (typeof payload === 'object' && !Array.isArray(payload) &&
+                Object.keys(payload).length === 0)) {
+            el.textContent = emptyText;
+            return;
+        }
+        el.textContent = JSON.stringify(payload, null, 2);
+    };
+
+    /**
+     * Refresh the admin context debug panel with the latest client/server state.
+     */
+    const refreshContextDebug = function() {
+        if (!contextDebugEnabled) {
+            return;
+        }
+        const rootEl = UI.getElements().root;
+        if (!rootEl) {
+            return;
+        }
+        const panel = rootEl.querySelector('.aica-debug-panel');
+        if (!panel) {
+            return;
+        }
+
+        contextDebugState.browser = buildContextDebugBrowserSnapshot(rootEl);
+
+        setContextDebugBlock(
+            panel.querySelector('.aica-debug-panel__pre--browser'),
+            contextDebugState.browser,
+            'No browser snapshot available.'
+        );
+        setContextDebugBlock(
+            panel.querySelector('.aica-debug-panel__pre--request'),
+            contextDebugState.lastRequest,
+            'Send a message to see the next request payload.'
+        );
+        setContextDebugBlock(
+            panel.querySelector('.aica-debug-panel__pre--prompt'),
+            contextDebugState.lastServer,
+            'Waiting for the server debug payload for the latest message.'
+        );
+    };
+
+    /**
+     * Initialise the admin context debug state.
+     *
+     * @param {HTMLElement} rootEl
+     */
+    const initContextDebug = function(rootEl) {
+        contextDebugEnabled = !!(rootEl && rootEl.dataset.contextDebug === '1');
+        if (!contextDebugEnabled) {
+            return;
+        }
+        contextDebugState.browser = buildContextDebugBrowserSnapshot(rootEl);
+        refreshContextDebug();
+    };
+
+    /**
+     * Toggle the admin context debug panel.
+     */
+    const handleContextDebugToggle = function() {
+        if (!contextDebugEnabled) {
+            return;
+        }
+        const rootEl = UI.getElements().root;
+        if (!rootEl) {
+            return;
+        }
+        const panel = rootEl.querySelector('.aica-debug-panel');
+        const btn = rootEl.querySelector('.local-ai-course-assistant__btn-debug');
+        if (!panel || !btn) {
+            return;
+        }
+
+        const opening = panel.hasAttribute('hidden');
+        if (opening) {
+            refreshContextDebug();
+            panel.removeAttribute('hidden');
+        } else {
+            panel.setAttribute('hidden', 'hidden');
+        }
+        btn.setAttribute('aria-pressed', opening ? 'true' : 'false');
+        btn.classList.toggle('local-ai-course-assistant__btn-debug--active', opening);
+    };
+
+    /**
+     * Copy the current debug snapshot to the clipboard.
+     */
+    const handleContextDebugCopy = function() {
+        if (!contextDebugEnabled || !navigator.clipboard) {
+            return;
+        }
+        const text = [
+            'Context debug',
+            '',
+            '[Browser snapshot]',
+            JSON.stringify(contextDebugState.browser || {}, null, 2),
+            '',
+            '[Last request]',
+            JSON.stringify(contextDebugState.lastRequest || {}, null, 2),
+            '',
+            '[Prompt view]',
+            JSON.stringify(contextDebugState.lastServer || {}, null, 2),
+        ].join('\n');
+
+        navigator.clipboard.writeText(text).then(function() {
+            UI.showNotification('Context debug copied', 'success');
+        }).catch(function() {
+            UI.showNotification('Could not copy debug snapshot', 'error');
+        });
+    };
+
+    /**
+     * Store the last outbound request in the debug inspector.
+     *
+     * @param {Object} postData
+     */
+    const updateContextDebugRequest = function(postData) {
+        if (!contextDebugEnabled) {
+            return;
+        }
+        contextDebugState.lastRequest = Object.assign({
+            sentAt: new Date().toISOString(),
+        }, JSON.parse(JSON.stringify(postData)));
+        contextDebugState.lastServer = null;
+        refreshContextDebug();
+    };
+
+    /**
+     * Store the last server-side debug payload in the inspector.
+     *
+     * @param {Object} payload
+     */
+    const updateContextDebugServer = function(payload) {
+        if (!contextDebugEnabled) {
+            return;
+        }
+        contextDebugState.lastServer = payload;
+        refreshContextDebug();
+    };
+
+    /**
+     * Convert a server timestamp into milliseconds when possible.
+     *
+     * @param {number|string|null} value
+     * @returns {number|null}
+     */
+    const normalizeTimestamp = function(value) {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+        const num = Number(value);
+        if (!isFinite(num) || num <= 0) {
+            return null;
+        }
+        return num < 1000000000000 ? num * 1000 : num;
+    };
+
+    /**
+     * Replace the in-memory conversation history used by the History tab.
+     *
+     * @param {Array} messages
+     */
+    const setConversationHistory = function(messages) {
+        conversationHistory = (messages || []).map(function(msg) {
+            return {
+                role: msg.role || 'assistant',
+                text: (msg.text !== undefined ? msg.text : msg.message) || '',
+                timestamp: normalizeTimestamp(msg.timestamp !== undefined ? msg.timestamp : msg.timecreated),
+            };
+        }).filter(function(msg) {
+            return !!(msg.text && msg.text.trim());
+        });
+        UI.renderHistoryPanel(conversationHistory);
+    };
+
+    /**
+     * Append one message to the in-memory conversation history.
+     *
+     * @param {string} role
+     * @param {string} text
+     * @param {number|string|null} ts
+     */
+    const recordConversationMessage = function(role, text, ts) {
+        const cleanText = ((text || '') + '')
+            .replace(/\n*\[SOLA_NEXT\][\s\S]*?\[\/SOLA_NEXT\]/g, '')
+            .trim();
+        if (!cleanText) {
+            return;
+        }
+        conversationHistory.push({
+            role: role,
+            text: cleanText,
+            timestamp: normalizeTimestamp(ts) || Date.now(),
+        });
+        if (conversationHistory.length > 120) {
+            conversationHistory = conversationHistory.slice(conversationHistory.length - 120);
+        }
+        UI.renderHistoryPanel(conversationHistory);
+    };
+
+    /**
+     * Determine whether voice chat can be started from this page.
+     *
+     * @returns {boolean}
+     */
+    const isVoiceChatAvailable = function() {
+        const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        const hasVoiceFeature = !!(root && root.dataset.ttsurl);
+        return hasVoiceFeature && window.isSecureContext && !!navigator.mediaDevices && Speech.isSTTSupported();
+    };
+
+    /**
+     * Refresh the copy and CTA state in the voice panel.
+     */
+    const syncVoicePanel = function() {
+        const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        if (!root) {
+            return;
+        }
+        const available = isVoiceChatAvailable();
+        const contextText = currentPageTitle
+            ? 'Start a voice conversation about "' + currentPageTitle + '" or another course topic. Your transcript will still show up in chat.'
+            : 'Start a voice conversation about this page or another course topic. Your transcript will still show up in chat.';
+        let status = 'Ready when you are.';
+        if (Voice.isConnected() || Realtime.isConnected()) {
+            status = 'Voice chat is live. Speak or type to continue.';
+        } else if (!root.dataset.ttsurl) {
+            status = 'Voice chat is not enabled for this course yet.';
+        } else if (!window.isSecureContext || !navigator.mediaDevices) {
+            status = 'Voice chat needs HTTPS and microphone access.';
+        } else if (!Speech.isSTTSupported()) {
+            status = 'This browser does not support speech input.';
+        }
+        UI.configureVoicePanel({
+            text: contextText,
+            status: status,
+            disabled: !available,
+        });
+    };
+
+    /**
+     * Refresh the compact History tab from the server.
+     *
+     * @param {boolean} showError
+     */
+    const refreshConversationHistory = function(showError) {
+        if (historyRefreshPending) {
+            return;
+        }
+        historyRefreshPending = true;
+        const refreshBtn = UI.getElements().historyRefreshBtn;
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+        }
+        Repo.getHistory(courseId).then(function(result) {
+            setConversationHistory(result && result.messages ? result.messages : []);
+            return;
+        }).catch(function() {
+            UI.renderHistoryPanel(conversationHistory);
+            if (showError) {
+                UI.showNotification('Could not refresh history right now.', 'error');
+            }
+        }).then(function() {
+            historyRefreshPending = false;
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+            }
+        });
+    };
+
+    /**
+     * Switch the footer mode and clean up conflicting UI state.
+     *
+     * @param {string} mode
+     * @param {{force?:boolean,refreshHistory?:boolean}} options
+     */
+    const setBottomMode = function(mode, options) {
+        options = options || {};
+        const normalized = ['chat', 'voice', 'history'].indexOf(mode) !== -1 ? mode : 'chat';
+        if (normalized === activeBottomMode && !options.force) {
+            if (normalized === 'history' && options.refreshHistory) {
+                refreshConversationHistory(false);
+            }
+            return;
+        }
+
+        if (normalized !== 'voice') {
+            if (Voice.isConnected()) {
+                Voice.disconnect();
+            }
+            if (Realtime.isConnected()) {
+                Realtime.disconnect();
+            }
+            UI.clearSuggestions();
+            UI.hideVoiceOverlay();
+        }
+
+        UI.hideTopicPicker();
+        UI.hideQuizSetup();
+        if (quizModeActive) {
+            quizModeActive = false;
+            const root = UI.getElements().root;
+            const quizBtn = root ? root.querySelector('.local-ai-course-assistant__btn-quiz') : null;
+            setQuizBtnActive(quizBtn, false);
+        }
+
+        activeBottomMode = normalized;
+        UI.setBottomMode(normalized);
+        if (normalized === 'voice') {
+            syncVoicePanel();
+        } else if (normalized === 'history') {
+            UI.renderHistoryPanel(conversationHistory);
+            if (options.refreshHistory) {
+                refreshConversationHistory(false);
+            }
+        }
+    };
 
     /**
      * Initialize the chat module.
@@ -92,6 +471,29 @@ define([
         currentPageTitle = root.dataset.currentPageTitle || '';
         quizLocked = root.dataset.quizLocked === '1';
 
+        // Fallbacks for themes/pages where Moodle does not populate PAGE->cm in the footer hook.
+        if (!currentPageId && document.body) {
+            var cmidMatch = document.body.className.match(/(?:^|\s)cmid-(\d+)(?:\s|$)/);
+            if (cmidMatch) {
+                currentPageId = parseInt(cmidMatch[1], 10) || 0;
+                if (currentPageId) {
+                    root.dataset.currentPageId = String(currentPageId);
+                }
+            }
+        }
+        if (!currentPageTitle) {
+            currentPageTitle = getContextDebugHeading() || root.dataset.serverPageTitle || '';
+            if (currentPageTitle) {
+                root.dataset.currentPageTitle = currentPageTitle;
+            }
+        }
+        if (!root.dataset.modname && document.body) {
+            var modTypeMatch = document.body.className.match(/(?:^|\s)cm-type-([a-z0-9_]+)(?:\s|$)/i);
+            if (modTypeMatch) {
+                root.dataset.modname = modTypeMatch[1].toLowerCase();
+            }
+        }
+
         // Parse quiz topics from data attribute.
         try {
             const raw = root.dataset.quizTopics;
@@ -109,8 +511,12 @@ define([
         } catch (e) { moduleTitles = []; }
 
         UI.initUI(root);
+        initContextDebug(root);
         bindEvents();
         initSpeech();
+        syncVoicePanel();
+        UI.setModeButtonsEnabled(!quizLocked);
+        setBottomMode('chat', {force: true});
         // Cache English starter labels before any language update overwrites them.
         root.querySelectorAll('.local-ai-course-assistant__starter').forEach(function(btn) {
             var span = btn.querySelector('span:not(.aica-starter-icon)');
@@ -263,6 +669,30 @@ define([
             els.micBtn.addEventListener('click', handleMic);
         }
 
+        if (els.modeButtons && els.modeButtons.forEach) {
+            els.modeButtons.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    setBottomMode(btn.dataset.mode, {
+                        force: btn.dataset.mode === activeBottomMode,
+                        refreshHistory: btn.dataset.mode === 'history',
+                    });
+                });
+            });
+        }
+
+        if (els.voiceStartBtn) {
+            els.voiceStartBtn.addEventListener('click', function() {
+                setBottomMode('voice', {force: true});
+                handlePracticeSpeaking();
+            });
+        }
+
+        if (els.historyRefreshBtn) {
+            els.historyRefreshBtn.addEventListener('click', function() {
+                refreshConversationHistory(true);
+            });
+        }
+
         // Language chip — opens compact language picker.
         if (els.langBtn) {
             els.langBtn.addEventListener('click', function() {
@@ -292,6 +722,14 @@ define([
         const settingsPanelBtn = els.root ? els.root.querySelector('.local-ai-course-assistant__btn-settings-panel') : null;
         if (settingsPanelBtn) {
             settingsPanelBtn.addEventListener('click', handleSettingsPanel);
+        }
+        const debugBtn = els.root ? els.root.querySelector('.local-ai-course-assistant__btn-debug') : null;
+        if (debugBtn) {
+            debugBtn.addEventListener('click', handleContextDebugToggle);
+        }
+        const debugCopyBtn = els.root ? els.root.querySelector('.aica-debug-panel__copy') : null;
+        if (debugCopyBtn) {
+            debugCopyBtn.addEventListener('click', handleContextDebugCopy);
         }
 
         // Voice mode button (header shortcut — triggers Practice Speaking / Option B).
@@ -422,6 +860,7 @@ define([
      * @param {string} starterKey
      */
     const handleStarter = function(starterKey) {
+        setBottomMode('chat', {force: true});
         UI.hideStarters();
 
         if (starterKey === 'quiz') {
@@ -539,6 +978,8 @@ define([
         }
         UI.hideVoiceOverlay();
         UI.clearSuggestions();
+        setBottomMode('chat', {force: true});
+        syncVoicePanel();
         UI.showStarters();
     };
 
@@ -679,6 +1120,7 @@ define([
         // Special chip: show starters overlay.
         if (text === 'Start something new' || text === 'Start fresh') {
             UI.clearSuggestions();
+            setBottomMode('chat', {force: true});
             UI.showStarters();
             return;
         }
@@ -694,12 +1136,31 @@ define([
      * Cheaper and more reliable than Realtime; suitable for conversational practice.
      */
     const handlePracticeSpeaking = function() {
+        if (sending || streamController) {
+            UI.showNotification('Please wait for the current response to finish before starting voice chat.', 'error');
+            return;
+        }
+        setBottomMode('voice', {force: true});
+        syncVoicePanel();
+        const root = document.getElementById('local-ai-course-assistant');
+        if (!root || !root.dataset.ttsurl) {
+            UI.showNotification('Voice chat is not enabled for this course yet.', 'error');
+            syncVoicePanel();
+            return;
+        }
+        if (!Speech.isSTTSupported()) {
+            UI.showNotification('This browser does not support speech input.', 'error');
+            syncVoicePanel();
+            return;
+        }
+
         // Practice Speaking uses the Web Speech API (STT), which also requires HTTPS on iOS.
         if (!window.isSecureContext || !navigator.mediaDevices) {
             addAssistantMsg(
                 'Practice Speaking requires a secure connection (HTTPS). ' +
                 'Please use the HTTPS version of this site to access voice features.'
             );
+            syncVoicePanel();
             return;
         }
 
@@ -707,7 +1168,6 @@ define([
         if (Realtime.isConnected()) { Realtime.disconnect(); }
         // Voice.connect() calls disconnect() internally if already connected.
 
-        const root = document.getElementById('local-ai-course-assistant');
         const avatarUrl = root ? root.dataset.avatarurl : '';
         const voice = localStorage.getItem('aica_tts_voice') || 'shimmer';
         var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
@@ -716,12 +1176,14 @@ define([
             Voice.disconnect();
             UI.clearSuggestions();
             UI.hideVoiceOverlay();
+            syncVoicePanel();
             UI.showStarters();
         };
 
         UI.showVoiceOverlay(avatarUrl, endSession,
             'Choose a topic or start speaking \u2014 ' + assistantName + ' will listen and respond.');
         UI.setVoiceState('idle');
+        syncVoicePanel();
 
         // Build context-aware conversation starters for speaking practice.
         var speakChips = [];
@@ -751,6 +1213,7 @@ define([
                     },
                     onStateChange: function(state) {
                         UI.setVoiceState(state);
+                        syncVoicePanel();
                         if (state === 'disconnected') {
                             UI.clearSuggestions();
                             UI.hideVoiceOverlay();
@@ -762,6 +1225,7 @@ define([
                         UI.setVoiceState('disconnected');
                         UI.clearSuggestions();
                         UI.hideVoiceOverlay();
+                        syncVoicePanel();
                         UI.showStarters();
                         addAssistantMsg(msg || 'Voice mode failed.');
                     },
@@ -793,6 +1257,13 @@ define([
      * Uses phoneme-level audio analysis — requires realtime_enabled and an OpenAI key.
      */
     const handleELLPronunciation = function() {
+        if (sending || streamController) {
+            UI.showNotification('Please wait for the current response to finish before starting voice chat.', 'error');
+            return;
+        }
+        setBottomMode('voice', {force: true});
+        syncVoicePanel();
+
         // Microphone API requires a secure context (HTTPS). On iOS Chrome even
         // localhost over HTTP is not treated as secure, so navigator.mediaDevices
         // is undefined. Fail fast with a clear message rather than the cryptic
@@ -802,6 +1273,7 @@ define([
                 'ELL Pronunciation requires a secure connection (HTTPS). ' +
                 'Please use the HTTPS version of this site to access voice features.'
             );
+            syncVoicePanel();
             return;
         }
 
@@ -838,12 +1310,14 @@ define([
             Realtime.disconnect();
             UI.clearSuggestions();
             UI.hideVoiceOverlay();
+            syncVoicePanel();
             UI.showStarters();
         };
 
         const overlay = UI.showVoiceOverlay(avatarUrl, endSession,
             'Choose a phrase to practice or start speaking \u2014 ' + assistantName + ' will give you feedback.');
         UI.setVoiceState('idle');
+        syncVoicePanel();
 
         // Build vocabulary chips from course context.
         var vocabChips = [];
@@ -897,6 +1371,7 @@ define([
                         },
                         onStateChange: function(state) {
                             UI.setVoiceState(state);
+                            syncVoicePanel();
                             if (state === 'disconnected') {
                                 UI.clearSuggestions();
                                 UI.hideVoiceOverlay();
@@ -907,6 +1382,7 @@ define([
                             UI.setVoiceState('disconnected');
                             UI.clearSuggestions();
                             UI.hideVoiceOverlay();
+                            syncVoicePanel();
                             UI.showStarters();
                             addAssistantMsg(msg || 'Voice connection failed.');
                         },
@@ -926,6 +1402,7 @@ define([
                 UI.setVoiceState('disconnected');
                 UI.clearSuggestions();
                 UI.hideVoiceOverlay();
+                syncVoicePanel();
                 UI.showStarters();
                 const errMsg = (err && err.message) ? err.message : 'Could not get voice token.';
                 Str.get_string('chat:voice_error', 'local_ai_course_assistant').then(function(s) {
@@ -1289,15 +1766,36 @@ define([
     };
 
     /**
+     * Add a user message to the chat and History tab.
+     *
+     * @param {string} text
+     * @param {number|null} ts
+     * @param {{skipHistory?:boolean}=} options
+     * @returns {HTMLElement}
+     */
+    const addUserMsg = function(text, ts, options) {
+        options = options || {};
+        if (!options.skipHistory) {
+            recordConversationMessage('user', text, ts || Date.now());
+        }
+        return UI.addMessage('user', text, null, ts || null);
+    };
+
+    /**
      * Add an assistant message with the speak button always present (when TTS is available).
      * Use this instead of UI.addMessage('assistant', ...) everywhere so every
      * assistant bubble consistently has the speaker icon.
      *
      * @param {string}      text  Message text
      * @param {number|null} ts    Optional Unix timestamp (ms)
+     * @param {{skipHistory?:boolean}=} options
      * @returns {HTMLElement}
      */
-    const addAssistantMsg = function(text, ts) {
+    const addAssistantMsg = function(text, ts, options) {
+        options = options || {};
+        if (!options.skipHistory) {
+            recordConversationMessage('assistant', text, ts || Date.now());
+        }
         const fn = (getTtsUrl() || Speech.isTTSSupported()) ? handleSpeak : null;
         return UI.addMessage('assistant', text, fn, ts || null);
     };
@@ -1954,16 +2452,21 @@ define([
             UI.preWelcome();
         }
         const opened = UI.toggleDrawer();
+        if (opened) {
+            setBottomMode('chat', {force: true});
+            syncVoicePanel();
+        }
         if (opened && quizLocked && !historyLoaded) {
             // Show quiz-locked notice instead of normal history/starters flow.
             // Explicitly clear any messages to prevent previous chat from being visible (cheating risk).
             historyLoaded = true;
             UI.clearMessages();
+            setConversationHistory([]);
             Str.get_string('chat:quiz_locked', 'local_ai_course_assistant').then(function(msg) {
-                addAssistantMsg(msg);
+                addAssistantMsg(msg, null, {skipHistory: true});
                 return;
             }).catch(function() {
-                addAssistantMsg('SOLA is paused during quizzes to support academic integrity. Good luck!');
+                addAssistantMsg('SOLA is paused during quizzes to support academic integrity. Good luck!', null, {skipHistory: true});
             });
             UI.setInputEnabled(false);
             return;
@@ -2133,7 +2636,7 @@ define([
             var msg = customGreeting
                 .replace(/\{\{firstname\}\}/gi, firstName || 'there')
                 .replace(/\{\{coursename\}\}/gi, courseName);
-            addAssistantMsg(msg);
+            addAssistantMsg(msg, null, {skipHistory: true});
             return;
         }
         var displayName = 'SOLA';
@@ -2147,11 +2650,11 @@ define([
             if (displayName !== 'SOLA') {
                 msg = msg.replace(/SOLA/g, displayName);
             }
-            addAssistantMsg(msg);
+            addAssistantMsg(msg, null, {skipHistory: true});
             return;
         }).catch(function() {
             addAssistantMsg('Hi, ' + (firstName || 'there') + '! I\'m ' + displayName +
-                ', your personal learning assistant.');
+                ', your personal learning assistant.', null, {skipHistory: true});
         });
     };
 
@@ -2161,6 +2664,7 @@ define([
     const loadHistory = function() {
         historyLoaded = true;
         Repo.getHistory(courseId).then(function(result) {
+            setConversationHistory(result && result.messages ? result.messages : []);
             if (result.messages && result.messages.length > 0) {
                 const NEXT_RE = /\n*\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/;
                 let lastSuggestions = [];
@@ -2203,9 +2707,9 @@ define([
                         }
                     }
                     if (msg.role === 'assistant') {
-                        addAssistantMsg(text, msg.timecreated ? msg.timecreated * 1000 : null);
+                        addAssistantMsg(text, msg.timecreated ? msg.timecreated * 1000 : null, {skipHistory: true});
                     } else {
-                        UI.addMessage('user', text, null, msg.timecreated ? msg.timecreated * 1000 : null);
+                        addUserMsg(text, msg.timecreated ? msg.timecreated * 1000 : null, {skipHistory: true});
                     }
                 });
                 UI.scrollToBottom(true);
@@ -2227,6 +2731,7 @@ define([
                 showGreeting();
             }
         }).catch(function() {
+            setConversationHistory([]);
             showGreeting();
         });
     };
@@ -2282,6 +2787,7 @@ define([
             return;
         }
 
+        setBottomMode('chat', {force: true});
         sending = true;
         sessionMessageCount++;
         UI.hideStarters();
@@ -2292,7 +2798,7 @@ define([
         updateLastSession();
 
         // Add user message.
-        UI.addMessage('user', text, null);
+        addUserMsg(text, null);
         UI.showTyping(true);
 
         // Accumulated response text.
@@ -2336,8 +2842,27 @@ define([
         if (completionPct > 0) {
             postData.completion = completionPct;
         }
+        if (contextDebugEnabled) {
+            postData.clienturl = window.location.href;
+            postData.clienttitle = document.title || '';
+            postData.pageheading = getContextDebugHeading();
+            postData.bodyclasses = document.body ? document.body.className : '';
+            if (rootEl && rootEl.dataset.pagetype) {
+                postData.clientpagetype = rootEl.dataset.pagetype;
+            }
+            if (rootEl && rootEl.dataset.modname) {
+                postData.clientmodname = rootEl.dataset.modname;
+            }
+            if (rootEl && rootEl.dataset.contextLevel) {
+                postData.clientcontextlevel = rootEl.dataset.contextLevel;
+            }
+            updateContextDebugRequest(postData);
+        }
 
         streamController = SSE.startStream(sseUrl, postData, {
+            onDebug: function(payload) {
+                updateContextDebugServer(payload);
+            },
             onToken: function(token) {
                 if (!fullText) {
                     // First token — create the streaming message element.
@@ -2359,6 +2884,7 @@ define([
                         displayText = fullText.replace(NEXT_RE, '').trimEnd();
                     }
                     UI.finishStreaming(displayText, (getTtsUrl() || Speech.isTTSSupported()) ? handleSpeak : null);
+                    recordConversationMessage('assistant', displayText, Date.now());
                     if (suggestions.length) {
                         UI.showSuggestions(suggestions, handleSuggestionClick);
                     } else if (fullText.trim().length > 0) {
@@ -2374,11 +2900,11 @@ define([
                 if (!breakNudgeShown && sessionMessageCount >= 30) {
                     breakNudgeShown = true;
                     setTimeout(function() {
-                        UI.addMessage('assistant',
+                        addAssistantMsg(
                             "You've been studying for a while — nice dedication! " +
                             "Research shows short breaks improve retention. " +
-                            "Consider stepping away for 5\u201310 minutes, then come back refreshed. \ud83d\udcaa",
-                            null);
+                            "Consider stepping away for 5\u201310 minutes, then come back refreshed. \ud83d\udcaa"
+                        );
                     }, 1500);
                 }
                 sending = false;
@@ -2389,6 +2915,7 @@ define([
                 UI.showTyping(false);
                 if (fullText) {
                     UI.finishStreaming(fullText);
+                    recordConversationMessage('assistant', fullText, Date.now());
                 }
                 window.console && console.error('[SOLA]', errorMsg); // eslint-disable-line no-console
                 // Show error as assistant message.
@@ -2449,6 +2976,7 @@ define([
 
             Repo.clearHistory(courseId).then(function() {
                 UI.clearMessages();
+                setConversationHistory([]);
                 showGreeting();
             }).catch(function() {
                 // Silently fail.

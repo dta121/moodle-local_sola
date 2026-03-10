@@ -86,6 +86,7 @@ curl_setopt_array($ch, [
     ],
     CURLOPT_TIMEOUT        => 30,
 ]);
+\local_ai_course_assistant\curl_helper::apply_moodle_defaults($ch);
 $response = curl_exec($ch);
 $httpcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);

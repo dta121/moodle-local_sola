@@ -57,6 +57,13 @@ $coachstyle = optional_param('coachingstyle', '', PARAM_ALPHA); // Coaching styl
 $timelimit  = optional_param('timelimit', 0, PARAM_INT);      // Time constraint in minutes (0 = none).
 $firstgen   = optional_param('firstgen', 0, PARAM_BOOL);      // First-generation student mode.
 $completion = optional_param('completion', 0, PARAM_INT);      // Course completion percentage (0-100).
+$clienturl = optional_param('clienturl', '', PARAM_RAW_TRIMMED);
+$clienttitle = optional_param('clienttitle', '', PARAM_TEXT);
+$pageheading = optional_param('pageheading', '', PARAM_TEXT);
+$bodyclasses = optional_param('bodyclasses', '', PARAM_TEXT);
+$clientpagetype = optional_param('clientpagetype', '', PARAM_TEXT);
+$clientmodname = optional_param('clientmodname', '', PARAM_ALPHANUMEXT);
+$clientcontextlevel = optional_param('clientcontextlevel', '', PARAM_ALPHA);
 
 // Validate context and capability.
 $context = context_course::instance($courseid);
@@ -115,8 +122,25 @@ function sse_send(array $data): void {
     flush();
 }
 
+/**
+ * Compact long debug text for the chat inspector.
+ *
+ * @param string $text
+ * @param int $maxchars
+ * @return string
+ */
+function sse_debug_excerpt(string $text, int $maxchars = 800): string {
+    $text = trim(preg_replace('/\s+/', ' ', $text));
+    if (strlen($text) <= $maxchars) {
+        return $text;
+    }
+    return substr($text, 0, $maxchars - 3) . '...';
+}
+
 try {
     $userid = $USER->id;
+    $contextdebugactive = (bool)get_config('local_ai_course_assistant', 'context_debug_enabled')
+        && has_capability('local/ai_course_assistant:manage', $context, $userid);
 
     // Check plugin is enabled.
     if (!get_config('local_ai_course_assistant', 'enabled')) {
@@ -245,6 +269,63 @@ try {
             $systemprompt .= "They are nearing completion. Help them consolidate their learning and prepare for "
                 . "any final assessments. Celebrate how far they've come.";
         }
+    }
+
+    $systemprompt = context_builder::append_current_page_context(
+        $systemprompt,
+        $pageid,
+        $pagetitle,
+        $pageheading,
+        $clienttitle,
+        $clientmodname
+    );
+
+    if ($contextdebugactive) {
+        $currentpagesection = '';
+        if (preg_match('/## Current Page[\s\S]*?(?=\n\n## |\z)/', $systemprompt, $matches)) {
+            $currentpagesection = trim($matches[0]);
+        }
+        $modulecontentexcerpt = '';
+        $pagecontentinprompt = null;
+        if ($pageid > 0) {
+            $modulecontentexcerpt = sse_debug_excerpt(context_builder::get_module_content($pageid, $pageheading));
+            if (!empty($modulecontentexcerpt)) {
+                $needle = substr($modulecontentexcerpt, 0, min(strlen($modulecontentexcerpt), 120));
+                $pagecontentinprompt = !empty($needle) && strpos($systemprompt, $needle) !== false;
+            }
+        }
+
+        sse_send([
+            'debug' => [
+                'server_received' => [
+                    'courseid' => $courseid,
+                    'pageid' => $pageid,
+                    'pagetitle' => $pagetitle,
+                    'lang' => $lang ?: null,
+                    'coachingstyle' => $coachstyle ?: null,
+                    'timelimit' => $timelimit ?: null,
+                    'firstgen' => (bool)$firstgen,
+                    'completion' => $completion ?: null,
+                    'clienturl' => $clienturl ?: null,
+                    'clienttitle' => $clienttitle ?: null,
+                    'pageheading' => $pageheading ?: null,
+                    'bodyclasses' => $bodyclasses ?: null,
+                    'clientpagetype' => $clientpagetype ?: null,
+                    'clientmodname' => $clientmodname ?: null,
+                    'clientcontextlevel' => $clientcontextlevel ?: null,
+                ],
+                'prompt_view' => [
+                    'prompt_length_chars' => strlen($systemprompt),
+                    'uses_rag' => !empty($retrievedchunks),
+                    'retrieved_chunk_count' => count($retrievedchunks),
+                    'has_current_page_section' => !empty($currentpagesection),
+                    'current_page_section' => $currentpagesection ?: null,
+                    'page_content_included_in_chat_prompt' => $pagecontentinprompt,
+                    'page_content_excerpt_available' => !empty($modulecontentexcerpt),
+                    'page_content_excerpt' => $modulecontentexcerpt ?: null,
+                ],
+            ],
+        ]);
     }
 
     $history = conversation_manager::get_history_for_api($conv->id);

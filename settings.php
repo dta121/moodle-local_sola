@@ -163,6 +163,20 @@ if ($hassiteconfig) {
         $displaymodes
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_ai_course_assistant/hide_on_quiz_for_students',
+        get_string('settings:hide_on_quiz_for_students', 'local_ai_course_assistant'),
+        get_string('settings:hide_on_quiz_for_students_desc', 'local_ai_course_assistant'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_ai_course_assistant/hide_on_quiz_for_staff',
+        get_string('settings:hide_on_quiz_for_staff', 'local_ai_course_assistant'),
+        get_string('settings:hide_on_quiz_for_staff_desc', 'local_ai_course_assistant'),
+        0
+    ));
+
     // Position.
     $positions = [
         'bottom-right' => get_string('settings:position_br', 'local_ai_course_assistant'),
@@ -199,7 +213,7 @@ if ($hassiteconfig) {
         'local_ai_course_assistant/avatar_color',
         get_string('settings:avatar_color', 'local_ai_course_assistant'),
         get_string('settings:avatar_color_desc', 'local_ai_course_assistant'),
-        '#4a6cf7'
+        '#173140'
     ));
 
     // Avatar fill/background color.
@@ -523,6 +537,20 @@ if ($hassiteconfig) {
         get_string('settings:realtime_voice_desc', 'local_ai_course_assistant'),
         'shimmer',
         $realtimevoices
+    ));
+
+    // --- Debugging Settings ---
+    $settings->add(new admin_setting_heading(
+        'local_ai_course_assistant/debug_heading',
+        get_string('settings:debug_heading', 'local_ai_course_assistant'),
+        get_string('settings:debug_heading_desc', 'local_ai_course_assistant')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_ai_course_assistant/context_debug_enabled',
+        get_string('settings:context_debug_enabled', 'local_ai_course_assistant'),
+        get_string('settings:context_debug_enabled_desc', 'local_ai_course_assistant'),
+        0
     ));
 
     $ADMIN->add('localplugins', $settings);

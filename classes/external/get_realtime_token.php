@@ -84,6 +84,7 @@ class get_realtime_token extends external_api {
             ],
             CURLOPT_TIMEOUT        => 5,
         ]);
+        \local_ai_course_assistant\curl_helper::apply_moodle_defaults($ch);
         $response = curl_exec($ch);
         $httpcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
