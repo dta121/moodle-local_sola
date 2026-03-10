@@ -32,6 +32,7 @@ if ($hassiteconfig) {
     $tokenanalyticsurl = new moodle_url('/local/ai_course_assistant/token_analytics.php');
     $updateadminurl = new moodle_url('/local/ai_course_assistant/update_admin.php');
     $integrityadminurl = new moodle_url('/local/ai_course_assistant/integrity_admin.php');
+    $whatsapptesturl = new moodle_url('/local/ai_course_assistant/whatsapp_test.php');
 
     $providers = [
         'claude' => get_string('settings:provider_claude', 'local_ai_course_assistant'),
@@ -479,6 +480,17 @@ if ($hassiteconfig) {
         ''
     ));
 
+    $studyplansettings->add(new admin_setting_description(
+        'local_ai_course_assistant/whatsapp_test_link',
+        get_string('settings:whatsapp_test_title', 'local_ai_course_assistant'),
+        get_string('settings:whatsapp_test_desc', 'local_ai_course_assistant') . '<br><br>' .
+            html_writer::link(
+                $whatsapptesturl,
+                get_string('settings:whatsapp_test_button', 'local_ai_course_assistant'),
+                ['class' => 'btn btn-secondary btn-sm']
+            )
+    ));
+
     $studyplansettings->add(new admin_setting_configcheckbox(
         'local_ai_course_assistant/inactivity_reminder_enabled',
         'Inactivity Reminders',
@@ -688,5 +700,13 @@ if ($hassiteconfig) {
         get_string('integrity:title', 'local_ai_course_assistant'),
         $integrityadminurl,
         'moodle/site:config'
+    ));
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_ai_course_assistant_whatsapptest',
+        get_string('whatsapptest:title', 'local_ai_course_assistant'),
+        $whatsapptesturl,
+        'moodle/site:config',
+        true
     ));
 }

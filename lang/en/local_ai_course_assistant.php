@@ -321,6 +321,9 @@ $string['settings:whatsapp_from_number'] = 'WhatsApp Sender Number';
 $string['settings:whatsapp_from_number_desc'] = 'The phone number to send WhatsApp messages from (with country code, e.g. +14155238886).';
 $string['settings:whatsapp_blocked_countries'] = 'WhatsApp Blocked Countries';
 $string['settings:whatsapp_blocked_countries_desc'] = 'Comma-separated ISO 3166-1 alpha-2 country codes where WhatsApp reminders are not allowed due to local regulations (e.g. "CN,IR,KP").';
+$string['settings:whatsapp_test_title'] = 'Test WhatsApp Integration';
+$string['settings:whatsapp_test_desc'] = 'Send a test WhatsApp message using the saved API URL, token, and sender number. Save changes on this page first if you updated the configuration above.';
+$string['settings:whatsapp_test_button'] = 'Open WhatsApp test';
 
 // RAG / Semantic Search settings.
 $string['settings:rag_heading'] = 'RAG / Semantic Search';
@@ -369,6 +372,33 @@ Keep up the great work!
 ---
 To stop receiving these reminders, click here: {$a->unsubscribe_url}';
 $string['reminder:whatsapp_body'] = 'Study Reminder for {$a->coursename}: {$a->message} (Opt out: {$a->unsubscribe_url})';
+$string['whatsapptest:title'] = 'WhatsApp Integration Test';
+$string['whatsapptest:back_to_settings'] = 'Back to study planning settings';
+$string['whatsapptest:config_notice'] = 'This page uses the saved WhatsApp API URL, token, and sender number from the Study Planning & Reminders settings page.';
+$string['whatsapptest:config_ready'] = 'Ready to test';
+$string['whatsapptest:config_incomplete'] = 'Configuration incomplete';
+$string['whatsapptest:config_missing'] = 'Missing: {$a}';
+$string['whatsapptest:config_enabled'] = 'Student WhatsApp reminders';
+$string['whatsapptest:config_enabled_on'] = 'Enabled';
+$string['whatsapptest:config_enabled_off'] = 'Disabled';
+$string['whatsapptest:config_api_url'] = 'API URL';
+$string['whatsapptest:config_api_token'] = 'API token';
+$string['whatsapptest:config_from_number'] = 'Sender number';
+$string['whatsapptest:config_saved'] = 'Saved';
+$string['whatsapptest:config_not_set'] = 'Not set';
+$string['whatsapptest:recipient'] = 'Test recipient number';
+$string['whatsapptest:recipient_desc'] = 'Enter the destination number in the format required by your WhatsApp provider, usually including the country code.';
+$string['whatsapptest:recipient_required'] = 'Enter a test recipient number before sending.';
+$string['whatsapptest:message'] = 'Test message';
+$string['whatsapptest:message_desc'] = 'Optional custom message. Leave blank to send the default SOLA integration test message.';
+$string['whatsapptest:default_message'] = 'SOLA WhatsApp integration test from {$a->site} at {$a->time}.';
+$string['whatsapptest:send'] = 'Send test message';
+$string['whatsapptest:result'] = 'Last test result';
+$string['whatsapptest:success'] = 'The test message was accepted by the WhatsApp provider.';
+$string['whatsapptest:failure'] = 'The test message was not accepted by the WhatsApp provider.';
+$string['whatsapptest:httpcode'] = 'HTTP status';
+$string['whatsapptest:response'] = 'Provider response';
+$string['whatsapptest:error'] = 'Error';
 $string['reminder:study_tip_prefix'] = 'Today\'s study focus: ';
 
 // Unsubscribe page.

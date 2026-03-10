@@ -256,15 +256,6 @@ class reminder_manager {
     public static function send_whatsapp_reminder(\stdClass $reminder, string $message): bool {
         global $DB;
 
-        $apiurl = get_config('local_ai_course_assistant', 'whatsapp_api_url');
-        $apitoken = get_config('local_ai_course_assistant', 'whatsapp_api_token');
-        $fromnumber = get_config('local_ai_course_assistant', 'whatsapp_from_number');
-
-        if (empty($apiurl) || empty($apitoken) || empty($fromnumber)) {
-            debugging('WhatsApp API not configured', DEBUG_DEVELOPER);
-            return false;
-        }
-
         $course = $DB->get_record('course', ['id' => $reminder->courseid], 'id, fullname', MUST_EXIST);
 
         $unsubscribeurl = new \moodle_url('/local/ai_course_assistant/unsubscribe.php', [
@@ -278,26 +269,109 @@ class reminder_manager {
         ];
         $body = get_string('reminder:whatsapp_body', 'local_ai_course_assistant', $bodydata);
 
+        $result = self::send_whatsapp_message($reminder->destination, $body);
+        if (!$result['success']) {
+            $details = trim(
+                ($result['error'] ?? '') .
+                (!empty($result['response']) ? ' ' . $result['response'] : '')
+            );
+            debugging('WhatsApp reminder failed: ' . $details, DEBUG_DEVELOPER);
+        }
+
+        return !empty($result['success']);
+    }
+
+    /**
+     * Get the saved WhatsApp configuration.
+     *
+     * @return array
+     */
+    public static function get_whatsapp_config(): array {
+        return [
+            'enabled' => (bool)get_config('local_ai_course_assistant', 'reminders_whatsapp_enabled'),
+            'apiurl' => trim((string)get_config('local_ai_course_assistant', 'whatsapp_api_url')),
+            'apitoken' => trim((string)get_config('local_ai_course_assistant', 'whatsapp_api_token')),
+            'fromnumber' => trim((string)get_config('local_ai_course_assistant', 'whatsapp_from_number')),
+        ];
+    }
+
+    /**
+     * Send a direct WhatsApp message using the saved integration settings.
+     *
+     * @param string $destination
+     * @param string $body
+     * @return array
+     */
+    public static function send_whatsapp_message(string $destination, string $body): array {
+        $config = self::get_whatsapp_config();
+        $missing = [];
+        if ($config['apiurl'] === '') {
+            $missing[] = 'api_url';
+        }
+        if ($config['apitoken'] === '') {
+            $missing[] = 'api_token';
+        }
+        if ($config['fromnumber'] === '') {
+            $missing[] = 'from_number';
+        }
+        if (!empty($missing)) {
+            return [
+                'success' => false,
+                'httpcode' => 0,
+                'response' => '',
+                'error' => 'WhatsApp API is not fully configured.',
+                'missing' => $missing,
+            ];
+        }
+
         $payload = json_encode([
-            'to' => $reminder->destination,
-            'from' => $fromnumber,
+            'to' => trim($destination),
+            'from' => $config['fromnumber'],
             'body' => $body,
         ]);
+        if ($payload === false) {
+            return [
+                'success' => false,
+                'httpcode' => 0,
+                'response' => '',
+                'error' => 'Failed to encode the WhatsApp request payload.',
+                'missing' => [],
+            ];
+        }
 
         $curl = new \curl();
         $curl->setopt([
             'CURLOPT_HTTPHEADER' => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $apitoken,
+                'Authorization: Bearer ' . $config['apitoken'],
             ],
             'CURLOPT_RETURNTRANSFER' => true,
             'CURLOPT_TIMEOUT' => 30,
         ]);
 
-        $response = $curl->post($apiurl, $payload);
-        $httpcode = $curl->get_info()['http_code'] ?? 0;
+        $response = $curl->post($config['apiurl'], $payload);
+        $info = (array)$curl->get_info();
+        $httpcode = (int)($info['http_code'] ?? 0);
+        $errno = (int)$curl->get_errno();
+        $curlerror = trim((string)($curl->error ?? ''));
+        $responsetext = is_string($response) ? $response : '';
+        $success = ($errno === 0 && $httpcode >= 200 && $httpcode < 300);
+        $error = $curlerror;
+        if (!$success && $error === '') {
+            if ($httpcode > 0) {
+                $error = 'HTTP ' . $httpcode;
+            } else {
+                $error = 'No response received from the WhatsApp API.';
+            }
+        }
 
-        return ($httpcode >= 200 && $httpcode < 300);
+        return [
+            'success' => $success,
+            'httpcode' => $httpcode,
+            'response' => $responsetext,
+            'error' => $error,
+            'missing' => [],
+        ];
     }
 
     /**
