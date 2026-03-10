@@ -929,6 +929,10 @@ define([
             if (!span) {
                 return;
             }
+            if (btn.dataset.translatable !== '1') {
+                span.textContent = btn.dataset.labelEn || span.textContent;
+                return;
+            }
             const text = keyMap[btn.dataset.starter];
             if (text) {
                 span.textContent = text;
@@ -1072,7 +1076,7 @@ define([
         if (els.root) {
             els.root.querySelectorAll('.local-ai-course-assistant__starter').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    handleStarter(btn.dataset.starter);
+                    handleStarter(btn.dataset.starter, btn);
                 });
             });
         }
@@ -1088,6 +1092,25 @@ define([
                 handleCopy();
             }
         });
+    };
+
+    /**
+     * Resolve a starter button from the current DOM.
+     *
+     * @param {string} starterKey
+     * @returns {HTMLElement|null}
+     */
+    const getStarterButtonByKey = function(starterKey) {
+        if (!starterKey) {
+            return null;
+        }
+        const rootEl = document.getElementById('local-ai-course-assistant');
+        if (!rootEl) {
+            return null;
+        }
+        return rootEl.querySelector(
+            '.local-ai-course-assistant__starter[data-starter="' + starterKey + '"]'
+        );
     };
 
     /**
@@ -1161,15 +1184,19 @@ define([
     /**
      * Handle a conversation starter button click.
      *
-     * 'quiz' opens the quiz setup panel directly.
-     * Visible text starters either send their prompt immediately or open Review & Practice.
+     * Starter behavior primarily comes from the button's data attributes.
      * Topic picker fallback is kept only for legacy starter keys.
      *
      * @param {string} starterKey
+     * @param {HTMLElement=} starterBtn
      */
-    const handleStarter = function(starterKey) {
+    const handleStarter = function(starterKey, starterBtn) {
         setBottomMode('chat', {force: true});
         UI.hideStarters();
+
+        if (!starterBtn) {
+            starterBtn = getStarterButtonByKey(starterKey);
+        }
 
         const sendStarterPrompt = function(prompt) {
             if (!prompt) {
@@ -1181,24 +1208,31 @@ define([
             handleSend();
         };
 
-        if (starterKey === 'quiz') {
+        var starterType = 'prompt';
+        var starterPrompt = '';
+        if (starterBtn) {
+            starterType = starterBtn.dataset.type || 'prompt';
+            starterPrompt = starterBtn.dataset.prompt || '';
+        }
+
+        if (starterType === 'quiz' || starterKey === 'quiz') {
             handleQuiz();
             return;
         }
 
-        if (starterKey === 'review-practice' || starterKey === 'quick-study') {
+        if (starterKey === 'quick-study') {
             handleQuickStudy();
             return;
         }
 
         // Practice Speaking — Option B (SSE + TTS + Web Speech API).
-        if (starterKey === 'ell-practice') {
+        if (starterType === 'voice' || starterKey === 'ell-practice') {
             handlePracticeSpeaking();
             return;
         }
 
         // ELL Pronunciation — Option C (Realtime), phoneme-level feedback.
-        if (starterKey === 'ell-pronunciation') {
+        if (starterType === 'pronunciation' || starterKey === 'ell-pronunciation') {
             handleELLPronunciation();
             return;
         }
@@ -1209,12 +1243,15 @@ define([
             return;
         }
 
-        if (starterKey === 'help-page' ||
-            starterKey === 'study-plan' ||
-            starterKey === 'ask-anything' ||
-            starterKey === 'key-concepts' ||
-            starterKey === 'ai-coach') {
-            sendStarterPrompt(buildStarterPrompt(starterKey, ''));
+        if (starterPrompt) {
+            const pageRef = currentPageTitle ? '"' + currentPageTitle + '"' : 'this lesson';
+            sendStarterPrompt(starterPrompt.replace(/\{page\}/g, pageRef));
+            return;
+        }
+
+        const prompt = buildStarterPrompt(starterKey, '');
+        if (prompt) {
+            sendStarterPrompt(prompt);
             return;
         }
 
@@ -1236,14 +1273,11 @@ define([
                 titleStr, actionStr,
                 function onSelect(topic) {
                     UI.hideTopicPicker();
-                    const prompt = buildStarterPrompt(starterKey, topic);
-                    if (!prompt) {
+                    const topicPrompt = buildStarterPrompt(starterKey, topic);
+                    if (!topicPrompt) {
                         return;
                     }
-                    UI.getElements().input.value = prompt;
-                    UI.autoResizeInput();
-                    UI.updateSendButton();
-                    handleSend();
+                    sendStarterPrompt(topicPrompt);
                 },
                 function onCancel() {
                     UI.hideTopicPicker();
@@ -1833,6 +1867,17 @@ define([
      */
     const matchStarterByVoice = function(transcript) {
         const lower = transcript.toLowerCase().trim();
+        const rootEl = document.getElementById('local-ai-course-assistant');
+        if (rootEl) {
+            const buttons = rootEl.querySelectorAll('.local-ai-course-assistant__starter');
+            for (let i = 0; i < buttons.length; i++) {
+                const labelEl = buttons[i].querySelector('span:not(.aica-starter-icon)');
+                const label = labelEl ? labelEl.textContent.toLowerCase().trim() : '';
+                if (label && lower.includes(label)) {
+                    return buttons[i].dataset.starter || null;
+                }
+            }
+        }
         const enKeywords = {
             'help-page':    ['help with this page', 'help me with this', 'explain this', 'explain',
                 'key concepts', 'key concept', 'concepts', 'main concepts'],

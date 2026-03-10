@@ -2,7 +2,7 @@
 
 A comprehensive AI-powered chat widget for Moodle 4.5+ that provides context-aware tutoring, support, and study planning for students.
 
-## Version 1.7.2
+## Version 1.8.0
 
 **Release Date:** March 10, 2026
 **Requires:** Moodle 4.5+ (2024100700)

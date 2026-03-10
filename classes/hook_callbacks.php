@@ -220,6 +220,13 @@ class hook_callbacks {
             ? (new \moodle_url('/local/ai_course_assistant/tts.php'))->out(false)
             : '';
 
+        $starters = starter_manager::get_effective_starters($courseid, !empty($ttsurl), $realtimeenabled);
+        if (!$ellpronunciationenabled) {
+            $starters = array_values(array_filter($starters, function(array $starter): bool {
+                return (string)($starter['key'] ?? '') !== 'ell-pronunciation';
+            }));
+        }
+
         // Calculate course completion percentage.
         $completionpct = 0;
         $completioninfo = new \completion_info($course);
@@ -270,6 +277,9 @@ class hook_callbacks {
             'currentpagetitle'   => $currentpagetitle,
             'modname'            => $modname,
             'pagetype'           => $pagetype,
+            'starters'           => $starters,
+            'hasstarterdata'     => true,
+            'startersjson'       => json_encode($starters, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
             'quizlocked'         => $quizlocked,
             'realtimeenabled'         => $realtimeenabled,
             'ellpronunciationenabled' => $ellpronunciationenabled,

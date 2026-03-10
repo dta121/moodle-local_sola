@@ -28,6 +28,7 @@
 require_once(__DIR__ . '/../../config.php');
 
 use local_ai_course_assistant\course_config_manager;
+use local_ai_course_assistant\starter_manager;
 
 $courseid = required_param('courseid', PARAM_INT);
 
@@ -96,6 +97,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $speakingpractice = optional_param('speaking_practice_enabled', 0, PARAM_INT);
     set_config('speaking_practice_course_' . $courseid, $speakingpractice, 'local_ai_course_assistant');
 
+    $starteroverrides = [];
+    foreach (starter_manager::get_global_starters() as $starter) {
+        $starterkey = clean_param((string)($starter['key'] ?? ''), PARAM_ALPHANUMEXT);
+        if ($starterkey === '') {
+            continue;
+        }
+        $starteroverrides[$starterkey] = (bool)optional_param('starter_' . $starterkey, 0, PARAM_INT);
+    }
+    starter_manager::save_course_overrides($courseid, $starteroverrides);
+
     redirect($pageurl, get_string('coursesettings:saved', 'local_ai_course_assistant'),
         null, \core\output\notification::NOTIFY_SUCCESS);
 }
@@ -121,6 +132,18 @@ $realtimeapikey = get_config('local_ai_course_assistant', 'realtime_apikey');
 $provider       = get_config('local_ai_course_assistant', 'provider');
 $mainapikey     = get_config('local_ai_course_assistant', 'apikey');
 $hasttskey = !empty($realtimeapikey) || ($provider === 'openai' && !empty($mainapikey));
+$startersettingsurl = new moodle_url('/local/ai_course_assistant/starter_settings.php');
+$starteroverrides = starter_manager::get_course_overrides($courseid);
+$starters = starter_manager::get_global_starters();
+foreach ($starters as &$starter) {
+    $starterkey = clean_param((string)($starter['key'] ?? ''), PARAM_ALPHANUMEXT);
+    $starter['cleankey'] = $starterkey;
+    $starter['icon_svg'] = starter_manager::get_icon_svg((string)($starter['icon'] ?? 'chat'));
+    $starter['courseenabled'] = is_array($starteroverrides) && array_key_exists($starterkey, $starteroverrides)
+        ? !empty($starteroverrides[$starterkey])
+        : !empty($starter['enabled']);
+}
+unset($starter);
 
 // Build provider options.
 $providers = [
@@ -359,6 +382,60 @@ echo html_writer::div(
         </div>
     </div>
     <?php } ?>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><?php echo get_string('starters:course_section', 'local_ai_course_assistant'); ?></h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted"><?php echo get_string('starters:course_desc', 'local_ai_course_assistant'); ?></p>
+            <div class="form-group row mt-2">
+                <div class="col-sm-9 offset-sm-3">
+                    <a href="<?php echo $startersettingsurl->out(false); ?>"
+                       class="btn btn-sm btn-outline-secondary" target="_blank">
+                        <?php echo get_string('starters:admin_title', 'local_ai_course_assistant'); ?> &rarr;
+                    </a>
+                </div>
+            </div>
+            <?php foreach ($starters as $starter) { ?>
+            <div class="border rounded px-3 py-3 mb-2">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div class="d-flex align-items-start mr-3">
+                        <span class="mr-3 text-muted" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;">
+                            <?php echo $starter['icon_svg']; ?>
+                        </span>
+                        <div>
+                            <div class="font-weight-bold"><?php echo s($starter['name']); ?></div>
+                            <?php if (!empty($starter['description'])) { ?>
+                            <div class="text-muted small"><?php echo s($starter['description']); ?></div>
+                            <?php } ?>
+                            <?php if (empty($starter['enabled'])) { ?>
+                            <div class="text-muted small">Disabled globally in Conversation Starter Settings.</div>
+                            <?php } ?>
+                            <?php if (($starter['conditional'] ?? '') === 'tts') { ?>
+                            <div class="text-muted small">Visible only when Speaking Practice is available for this course.</div>
+                            <?php } else if (($starter['conditional'] ?? '') === 'realtime') { ?>
+                            <div class="text-muted small">Visible only when Realtime voice is available for this course.</div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox"
+                               class="custom-control-input"
+                               id="starter_<?php echo s($starter['cleankey']); ?>"
+                               name="starter_<?php echo s($starter['cleankey']); ?>"
+                               value="1"
+                               <?php if ($starter['courseenabled']) { echo 'checked'; } ?>>
+                        <label class="custom-control-label"
+                               for="starter_<?php echo s($starter['cleankey']); ?>">
+                            Enable
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <?php } ?>
+        </div>
+    </div>
 
     <div class="card mb-3">
         <div class="card-header">

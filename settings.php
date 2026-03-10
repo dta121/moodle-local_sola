@@ -224,6 +224,18 @@ if ($hassiteconfig) {
         '#ffffff'
     ));
 
+    $startersurl = new moodle_url('/local/ai_course_assistant/starter_settings.php');
+    $settings->add(new admin_setting_description(
+        'local_ai_course_assistant/starters_link',
+        get_string('starters:admin_title', 'local_ai_course_assistant'),
+        get_string('starters:admin_desc', 'local_ai_course_assistant') . '<br><br>' .
+            html_writer::link(
+                $startersurl,
+                get_string('starters:admin_title', 'local_ai_course_assistant'),
+                ['class' => 'btn btn-secondary btn-sm']
+            )
+    ));
+
     // --- RAG / Semantic Search Settings ---
     $settings->add(new admin_setting_heading(
         'local_ai_course_assistant/rag_heading',
@@ -547,6 +559,13 @@ if ($hassiteconfig) {
     ));
 
     $ADMIN->add('localplugins', $settings);
+
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_ai_course_assistant_starters',
+        get_string('starters:admin_title', 'local_ai_course_assistant'),
+        new moodle_url('/local/ai_course_assistant/starter_settings.php'),
+        'moodle/site:config'
+    ));
 
     // Register the RAG admin page as a separate entry in the admin menu.
     $ADMIN->add('localplugins', new admin_externalpage(

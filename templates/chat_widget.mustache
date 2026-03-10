@@ -244,7 +244,25 @@
         {{/contextdebugvisible}}
 
         {{! Conversation starters — hidden once a message is sent }}
-        <div class="local-ai-course-assistant__starters" aria-label="{{#str}}chat:starters_label, local_ai_course_assistant{{/str}}">
+        <div class="local-ai-course-assistant__starters"
+             aria-label="{{#str}}chat:starters_label, local_ai_course_assistant{{/str}}"
+             data-starters="{{startersjson}}">
+            {{#starters}}
+            <button class="local-ai-course-assistant__starter"
+                    type="button"
+                    data-starter="{{key}}"
+                    data-type="{{type}}"
+                    data-prompt="{{prompt}}"
+                    data-builtin="{{#builtin}}1{{/builtin}}"
+                    data-translatable="{{#translatable}}1{{/translatable}}"
+                    {{#description}}title="{{description}}"{{/description}}>
+                <span class="aica-starter-icon" aria-hidden="true">
+                    {{{icon_svg}}}
+                </span>
+                <span>{{name}}</span>
+            </button>
+            {{/starters}}
+            {{^hasstarterdata}}
             <button class="local-ai-course-assistant__starter" data-starter="help-page">
                 <span class="aica-starter-icon" aria-hidden="true">
                     {{! Lightbulb ? Help With This Page }}
@@ -304,6 +322,7 @@
                 <span>{{#str}}chat:starter_ell_pronunciation, local_ai_course_assistant{{/str}}</span>
             </button>
             {{/ellpronunciationenabled}}
+            {{/hasstarterdata}}
         </div>
 
         <div class="local-ai-course-assistant__voice-panel" hidden>

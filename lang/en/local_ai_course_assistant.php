@@ -149,6 +149,19 @@ $string['coursesettings:global_settings_link'] = 'Global AI settings';
 $string['coursesettings:token_usage'] = 'Token Usage & Cost';
 $string['coursesettings:token_usage_desc'] = 'View token usage, cost estimates, and per-student breakdowns for this course.';
 
+// Conversation starter admin.
+$string['starters:admin_title'] = 'Conversation Starter Settings';
+$string['starters:admin_desc'] = 'Configure the conversation starter chips shown to students when they open SOLA. Drag to reorder, toggle to enable or disable, or add custom starters with your own prompts.';
+$string['starters:add_new'] = 'Add new starter';
+$string['starters:save'] = 'Save changes';
+$string['starters:saved'] = 'Starter configuration saved.';
+$string['starters:reset_defaults'] = 'Reset to defaults';
+$string['starters:reset_confirm'] = 'Reset all starters to built-in defaults? Custom starters will be deleted.';
+$string['starters:reset_done'] = 'Starters reset to defaults.';
+$string['starters:back_settings'] = 'Back to settings';
+$string['starters:course_section'] = 'Conversation starters';
+$string['starters:course_desc'] = 'Enable or disable individual starters for this course.';
+
 // Language detection and preference.
 $string['lang:switch'] = 'Yes, switch';
 $string['lang:dismiss'] = 'No thanks';
