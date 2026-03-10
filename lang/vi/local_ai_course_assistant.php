@@ -314,10 +314,13 @@ $string['chat:quiz_your_answer'] = 'Câu trả lời của bạn';
 $string['chat:quiz_correct_answer'] = 'Câu trả lời đúng';
 
 $string['chat:starters_label'] = 'Gợi ý bắt đầu cuộc trò chuyện';
+$string['chat:starter_help_page'] = 'Trợ giúp trang này';
 $string['chat:starter_quiz'] = 'Kiểm Tra Tôi';
 $string['chat:starter_explain'] = 'Giải Thích Điều Này';
 $string['chat:starter_key_concepts'] = 'Khái Niệm Chính';
 $string['chat:starter_study_plan'] = 'Kế Hoạch Học Tập';
+$string['chat:starter_ask_anything'] = 'Hỏi bất cứ điều gì';
+$string['chat:starter_review_practice'] = 'Ôn tập và thực hành';
 $string['chat:starter_help_me'] = 'Trợ Lý AI';
 $string['chat:starter_ell_practice'] = 'Luyện Nói';
 $string['chat:starter_ell_pronunciation'] = 'Luyện Phát Âm ELL';

@@ -317,10 +317,13 @@ $string['chat:quiz_correct_answer'] = 'सही उत्तर';
 
 // Conversation starters.
 $string['chat:starters_label'] = 'बातचीत शुरू करें';
+$string['chat:starter_help_page'] = 'इस पेज में मदद';
 $string['chat:starter_quiz'] = 'मुझे परखें';
 $string['chat:starter_explain'] = 'यह समझाएँ';
 $string['chat:starter_key_concepts'] = 'मुख्य अवधारणाएँ';
 $string['chat:starter_study_plan'] = 'अध्ययन योजना';
+$string['chat:starter_ask_anything'] = 'कुछ भी पूछें';
+$string['chat:starter_review_practice'] = 'दोहराएं और अभ्यास करें';
 $string['chat:starter_help_me'] = 'AI सहायता';
 $string['chat:starter_ell_practice'] = 'बोलने का अभ्यास';
 $string['chat:starter_ell_pronunciation'] = 'ELL उच्चारण';

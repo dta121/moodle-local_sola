@@ -286,10 +286,13 @@ $string['chat:quiz_correct_answer'] = 'الإجابة الصحيحة';
 
 // Conversation starters.
 $string['chat:starters_label'] = 'محادثات مقترحة';
+$string['chat:starter_help_page'] = 'مساعدة في هذه الصفحة';
 $string['chat:starter_quiz'] = 'اختبرني';
 $string['chat:starter_explain'] = 'اشرح هذا';
 $string['chat:starter_key_concepts'] = 'المفاهيم الأساسية';
 $string['chat:starter_study_plan'] = 'خطة الدراسة';
+$string['chat:starter_ask_anything'] = 'اسأل أي شيء';
+$string['chat:starter_review_practice'] = 'مراجعة وتمرين';
 $string['chat:starter_help_me'] = 'مساعدة الذكاء الاصطناعي';
 $string['chat:starter_ell_practice'] = 'تمرين المحادثة';
 $string['chat:starter_ell_pronunciation'] = 'نطق ELL';

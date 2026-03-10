@@ -440,10 +440,13 @@ $string['chat:quiz_correct_answer']     = 'Correct answer';
 
 // Conversation starters.
 $string['chat:starters_label']              = 'Conversation starters';
+$string['chat:starter_help_page'] = 'Help With This Page';
 $string['chat:starter_quiz']                = 'Quiz Me';
 $string['chat:starter_explain']             = 'Explain This';
 $string['chat:starter_key_concepts']        = 'Key Concepts';
 $string['chat:starter_study_plan']          = 'Study Plan';
+$string['chat:starter_ask_anything'] = 'Ask Anything';
+$string['chat:starter_review_practice'] = 'Review & Practice';
 $string['chat:starter_help_me']             = 'AI Help';
 $string['chat:starter_ell_practice']        = 'Practice Speaking';
 $string['chat:starter_ell_pronunciation']   = 'Pronunciation Practice';

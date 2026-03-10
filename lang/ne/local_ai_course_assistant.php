@@ -314,10 +314,13 @@ $string['chat:quiz_your_answer'] = 'तपाईंको उत्तर';
 $string['chat:quiz_correct_answer'] = 'सही उत्तर';
 
 $string['chat:starters_label'] = 'वार्तालाप सुरुवात';
+$string['chat:starter_help_page'] = 'यो पृष्ठमा मद्दत';
 $string['chat:starter_quiz'] = 'मलाई परीक्षण गर्नुहोस्';
 $string['chat:starter_explain'] = 'यो व्याख्या गर्नुहोस्';
 $string['chat:starter_key_concepts'] = 'मुख्य अवधारणाहरू';
 $string['chat:starter_study_plan'] = 'अध्ययन योजना';
+$string['chat:starter_ask_anything'] = 'जे पनि सोध्नुहोस्';
+$string['chat:starter_review_practice'] = 'समीक्षा र अभ्यास';
 $string['chat:starter_help_me'] = 'AI सहायता';
 $string['chat:starter_ell_practice'] = 'बोल्ने अभ्यास';
 $string['chat:starter_ell_pronunciation'] = 'ELL उच्चारण';

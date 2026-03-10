@@ -6,7 +6,7 @@ The AI Course Assistant plugin implements comprehensive security measures to ens
 
 ## Version
 
-- **Plugin Version:** 1.7.1 (2026031004)
+- **Plugin Version:** 1.7.2 (2026031005)
 - **Moodle Requirement:** 4.5+
 - **Maturity:** STABLE
 - **Last Updated:** March 10, 2026

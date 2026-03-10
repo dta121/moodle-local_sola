@@ -909,15 +909,19 @@ define([
         }
         const labels = Speech.getStarterLabels(langCode);
         const keyMap = {
+            'help-page':    labels ? labels.helpPage     : null,
             'quiz':         labels ? labels.quiz         : null,
-            'explain':      labels ? labels.helpLesson   : null, // reuse helpLesson translations
-            'key-concepts': labels ? labels.keyConcepts  : null,
             'study-plan':   labels ? labels.studyPlan    : null,
+            'ask-anything': labels ? labels.askAnything  : null,
+            'review-practice': labels ? labels.reviewPractice : null,
             'ell-practice':       labels ? labels.ellPractice       : null,
             'ell-pronunciation':  labels ? labels.ellPronunciation  : null,
-            'ai-coach':           labels ? labels.aiCoach           : null,
             // Legacy starter keys.
-            'help-lesson':  labels ? labels.helpLesson   : null,
+            'explain':      labels ? labels.helpPage     : null,
+            'key-concepts': labels ? labels.helpPage     : null,
+            'ai-coach':     labels ? labels.askAnything  : null,
+            'quick-study':  labels ? labels.reviewPractice : null,
+            'help-lesson':  labels ? labels.helpPage     : null,
             'help-me':      labels ? labels.helpMe       : null,
         };
         rootEl.querySelectorAll('.local-ai-course-assistant__starter').forEach(function(btn) {
@@ -1089,7 +1093,7 @@ define([
     /**
      * Build a prompt string for a conversation starter + chosen topic.
      *
-     * @param {string} starterKey 'help-lesson' | 'explain' | 'study-plan'
+     * @param {string} starterKey Starter key (e.g. 'help-page' | 'study-plan' | 'ask-anything')
      * @param {string} topic      Resolved topic ('' = default, '__guided__' = AI-guided)
      * @returns {string}
      */
@@ -1097,33 +1101,23 @@ define([
         const isGuided = topic === '__guided__';
         const isEmpty  = !topic || topic === '';
 
-        if (starterKey === 'help-lesson') {
-            if (isGuided) {
-                return 'Based on my course progress and previous questions, which concept should I ' +
-                    'be focusing on most right now? Please identify it, then help me understand it.';
-            }
-            if (isEmpty) {
-                const pageRef = currentPageTitle ? '"' + currentPageTitle + '"' : 'the current lesson';
-                return 'Can you help me understand the key concepts from ' + pageRef + '? Give me a clear summary.';
-            }
-            return 'Can you help me understand "' + topic + '"? Give me a summary of the key ' +
-                'concepts and any important details.';
-        }
-
-        if (starterKey === 'explain') {
+        // Help With This Page — combines old "Explain This" + "Key Concepts".
+        if (starterKey === 'help-page' || starterKey === 'explain' || starterKey === 'help-lesson') {
             if (isGuided) {
                 return 'Based on my progress and what I\'ve been asking about, which concept from ' +
                     'this course should I understand more deeply right now? Please identify it and ' +
                     'explain it clearly with examples.';
             }
             if (isEmpty) {
-                const pageRef = currentPageTitle ? '"' + currentPageTitle + '"' : 'this course so far';
-                return 'Can you explain the most important concept from ' + pageRef + '? Use examples and clear language.';
+                const pageRef = currentPageTitle ? '"' + currentPageTitle + '"' : 'this lesson';
+                return 'Help me understand ' + pageRef + '. What are the key concepts, and can you ' +
+                    'explain them with examples?';
             }
             return 'Can you explain "' + topic + '" in detail? Use examples and analogies to ' +
                 'make it easy to understand.';
         }
 
+        // Key Concepts (legacy, still works if called).
         if (starterKey === 'key-concepts') {
             if (isEmpty) {
                 const pageRef = currentPageTitle ? '"' + currentPageTitle + '"' : 'this course so far';
@@ -1147,10 +1141,18 @@ define([
                 'how much time I have available, then create a focused study plan.';
         }
 
-        if (starterKey === 'ai-coach') {
-            const pageRef = currentPageTitle ? ' and how AI could apply to "' + currentPageTitle + '"' : '';
-            return 'I\'d like to explore AI' + pageRef + '. Can you help me understand how AI works, ' +
-                'ask questions about AI concepts, or figure out how to use AI tools in my learning and projects?';
+        // Ask Anything — replaces old "AI Coach".
+        if (starterKey === 'ask-anything' || starterKey === 'ai-coach') {
+            const pageRef = currentPageTitle ? ' about "' + currentPageTitle + '"' : '';
+            return 'I have a question' + pageRef + '. Can you help me? I\'d like to explore this ' +
+                'topic, ask follow-up questions, and understand it better.';
+        }
+
+        if (starterKey === 'review-practice') {
+            const pageRef = currentPageTitle ? ' from "' + currentPageTitle + '"' : ' from recent lessons';
+            return 'I\'d like to review and practice what I\'ve been learning' + pageRef + '. ' +
+                'Can you help me identify what I should review, then quiz me or walk me through ' +
+                'the key points?';
         }
 
         return '';
@@ -1160,7 +1162,8 @@ define([
      * Handle a conversation starter button click.
      *
      * 'quiz' opens the quiz setup panel directly.
-     * All other starters show a topic picker first, then send the constructed prompt.
+     * Visible text starters either send their prompt immediately or open Review & Practice.
+     * Topic picker fallback is kept only for legacy starter keys.
      *
      * @param {string} starterKey
      */
@@ -1168,12 +1171,22 @@ define([
         setBottomMode('chat', {force: true});
         UI.hideStarters();
 
+        const sendStarterPrompt = function(prompt) {
+            if (!prompt) {
+                return;
+            }
+            UI.getElements().input.value = prompt;
+            UI.autoResizeInput();
+            UI.updateSendButton();
+            handleSend();
+        };
+
         if (starterKey === 'quiz') {
             handleQuiz();
             return;
         }
 
-        if (starterKey === 'quick-study') {
+        if (starterKey === 'review-practice' || starterKey === 'quick-study') {
             handleQuickStudy();
             return;
         }
@@ -1192,38 +1205,22 @@ define([
 
         // "Help Me" fires directly without a topic picker.
         if (starterKey === 'help-me') {
-            const prompt = 'I need some help!';
-            UI.getElements().input.value = prompt;
-            UI.autoResizeInput();
-            UI.updateSendButton();
-            handleSend();
+            sendStarterPrompt('I need some help!');
             return;
         }
 
-        // "Key Concepts" fires directly — no topic picker needed.
-        if (starterKey === 'key-concepts') {
-            const prompt = buildStarterPrompt('key-concepts', '');
-            UI.getElements().input.value = prompt;
-            UI.autoResizeInput();
-            UI.updateSendButton();
-            handleSend();
-            return;
-        }
-
-        // "AI Coach" fires directly — invites the student to explore AI.
-        if (starterKey === 'ai-coach') {
-            const prompt = buildStarterPrompt('ai-coach', '');
-            UI.getElements().input.value = prompt;
-            UI.autoResizeInput();
-            UI.updateSendButton();
-            handleSend();
+        if (starterKey === 'help-page' ||
+            starterKey === 'study-plan' ||
+            starterKey === 'ask-anything' ||
+            starterKey === 'key-concepts' ||
+            starterKey === 'ai-coach') {
+            sendStarterPrompt(buildStarterPrompt(starterKey, ''));
             return;
         }
 
         const titleKeyMap = {
             'help-lesson':  'chat:topic_picker_title_help',
             'explain':      'chat:topic_picker_title_explain',
-            'study-plan':   'chat:topic_picker_title_study',
             'key-concepts': 'chat:topic_picker_title_explain',
         };
         const titleKey = titleKeyMap[starterKey] || 'chat:topic_picker_title';
@@ -1837,22 +1834,30 @@ define([
     const matchStarterByVoice = function(transcript) {
         const lower = transcript.toLowerCase().trim();
         const enKeywords = {
+            'help-page':    ['help with this page', 'help me with this', 'explain this', 'explain',
+                'key concepts', 'key concept', 'concepts', 'main concepts'],
             'quiz':         ['quiz', 'test', 'quiz me', 'test me'],
-            'explain':      ['explain', 'explain this', 'explain it'],
-            'key-concepts': ['key concepts', 'key concept', 'concepts', 'main concepts'],
             'study-plan':   ['study plan', 'study', 'plan', 'schedule'],
-            'ell-practice':      ['practice speaking', 'speaking practice', 'practice'],
+            'ask-anything': ['ask anything', 'ask a question', 'question', 'ai coach',
+                'learn about ai', 'artificial intelligence', 'ai tools'],
+            'review-practice': ['review and practice', 'review practice', 'quick study', 'review'],
+            'ell-practice':      ['practice speaking', 'speaking practice'],
             'ell-pronunciation': ['pronunciation', 'pronunciation coach', 'ell pronunciation'],
-            'ai-coach':          ['ai coach', 'learn about ai', 'artificial intelligence', 'ai tools'],
         };
         // Check translated labels for the current language first.
         const labels = Speech.getStarterLabels(Speech.getLang ? Speech.getLang() : null);
         const labelMap = {
-            quiz:        'quiz',
-            helpLesson:  'explain',
-            keyConcepts: 'key-concepts',
-            studyPlan:   'study-plan',
-            ellPractice: 'ell-practice',
+            helpPage:         'help-page',
+            helpLesson:       'help-page',
+            keyConcepts:      'help-page',
+            quiz:             'quiz',
+            studyPlan:        'study-plan',
+            askAnything:      'ask-anything',
+            reviewPractice:   'review-practice',
+            helpMe:           'ask-anything',
+            aiCoach:          'ask-anything',
+            ellPractice:      'ell-practice',
+            ellPronunciation: 'ell-pronunciation',
         };
         if (labels) {
             for (const key in labelMap) {
@@ -1898,7 +1903,7 @@ define([
                             UI.getElements().input.value = '';
                             UI.autoResizeInput();
                             UI.updateSendButton();
-                            handleStarter({currentTarget: {dataset: {starter: matched}}});
+                            handleStarter(matched);
                             return;
                         }
                     }
@@ -2469,7 +2474,7 @@ define([
     };
 
     /**
-     * Handle the Quick Study chip.
+     * Handle the Review & Practice chip (legacy Quick Study flow).
      * Shows a time picker + topic selector (with objectives/modules sub-select),
      * recent sessions with Resume buttons, then sends a focused study prompt.
      */
@@ -2497,7 +2502,7 @@ define([
         // Title.
         const title = document.createElement('h3');
         title.className = 'aica-quiz-setup__title';
-        title.textContent = 'Quick Study';
+        title.textContent = 'Review & Practice';
         panel.appendChild(title);
 
         // --- Recent sessions ---
@@ -2507,7 +2512,7 @@ define([
             if (recent.length > 0) {
                 const recentLabel = document.createElement('p');
                 recentLabel.className = 'aica-quiz-setup__label';
-                recentLabel.textContent = 'Recent sessions';
+                recentLabel.textContent = 'Recent review sessions';
                 panel.appendChild(recentLabel);
 
                 const recentList = document.createElement('div');
@@ -2525,12 +2530,13 @@ define([
                     const resumeBtn = document.createElement('button');
                     resumeBtn.type = 'button';
                     resumeBtn.className = 'aica-study-setup__resume-btn';
-                    resumeBtn.textContent = 'Resume';
+                    resumeBtn.textContent = 'Continue';
                     resumeBtn.addEventListener('click', function() {
                         panel.remove();
                         drawer.classList.remove('local-ai-course-assistant__drawer--quiz-setup');
-                        const prompt = 'Let\'s continue studying "' + sess.topic + '" from where I left off. ' +
-                            'Briefly remind me what we covered and what I should learn next.';
+                        const prompt = 'Let\'s continue reviewing and practicing "' + sess.topic +
+                            '" from where I left off. Briefly remind me what we covered, then help ' +
+                            'me practice the next most important thing.';
                         UI.getElements().input.value = prompt;
                         UI.autoResizeInput();
                         UI.updateSendButton();
@@ -2546,7 +2552,7 @@ define([
         // --- Time picker ---
         const timeLabel = document.createElement('p');
         timeLabel.className = 'aica-quiz-setup__label';
-        timeLabel.textContent = 'How much time do you have?';
+        timeLabel.textContent = 'How much time do you have to review?';
         panel.appendChild(timeLabel);
 
         const timeRow = document.createElement('div');
@@ -2574,7 +2580,7 @@ define([
         // --- Topic selector ---
         const topicLabel = document.createElement('p');
         topicLabel.className = 'aica-quiz-setup__label';
-        topicLabel.textContent = 'What would you like to study?';
+        topicLabel.textContent = 'What would you like to review?';
         panel.appendChild(topicLabel);
 
         const select = document.createElement('select');
@@ -2647,7 +2653,7 @@ define([
         const startBtn = document.createElement('button');
         startBtn.type = 'button';
         startBtn.className = 'aica-quiz-setup__start';
-        startBtn.textContent = 'Start';
+        startBtn.textContent = 'Start review';
         startBtn.addEventListener('click', function() {
             let topic;
             if (select.value === '__custom__') {
@@ -2666,15 +2672,15 @@ define([
 
             let prompt;
             if (topic) {
-                prompt = 'I have ' + selectedMinutes + ' minutes. Please give me a focused ' +
-                    selectedMinutes + '-minute study session on "' + topic +
-                    '". Start with the most important concept, keep responses concise, ' +
-                    'and guide me step by step.';
+                prompt = 'I have ' + selectedMinutes + ' minutes. Please help me review and ' +
+                    'practice "' + topic + '" in a focused ' + selectedMinutes +
+                    '-minute session. Start with the most important concept, keep responses ' +
+                    'concise, and quiz me or coach me step by step.';
             } else {
-                prompt = 'I have ' + selectedMinutes + ' minutes to study. Based on my recent ' +
-                    'activity and this course, what should I focus on? Give me a focused ' +
-                    selectedMinutes + '-minute study session \u2014 start immediately with the most ' +
-                    'important topic and keep responses concise.';
+                prompt = 'I have ' + selectedMinutes + ' minutes to review and practice. Based ' +
+                    'on my recent activity and this course, what should I focus on? Give me a ' +
+                    'focused ' + selectedMinutes + '-minute review session \u2014 start immediately ' +
+                    'with the most important topic, keep responses concise, and include practice.';
             }
 
             // Track study session.
@@ -2753,12 +2759,12 @@ define([
         sessHead.className = 'aica-settings-panel__section-title';
         let sessions = [];
         try { sessions = JSON.parse(localStorage.getItem('aica_study_sessions_' + courseId) || '[]'); } catch (e) { /**/ }
-        sessHead.textContent = 'Study sessions (' + sessions.length + ')';
+        sessHead.textContent = 'Review & Practice sessions (' + sessions.length + ')';
         sessSection.appendChild(sessHead);
         if (sessions.length === 0) {
             const p = document.createElement('p');
             p.className = 'aica-settings-panel__empty-note';
-            p.textContent = 'No study sessions yet. Start a Quick Study!';
+            p.textContent = 'No review sessions yet. Start a Review & Practice session!';
             sessSection.appendChild(p);
         } else {
             const totalMins = sessions.reduce(function(s, x) { return s + (x.minutes || 0); }, 0);

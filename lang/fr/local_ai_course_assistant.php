@@ -288,10 +288,13 @@ $string['chat:quiz_correct_answer'] = 'Bonne réponse';
 
 // Conversation starters.
 $string['chat:starters_label'] = 'Amorces de conversation';
+$string['chat:starter_help_page'] = 'Aide sur cette page';
 $string['chat:starter_quiz'] = 'Me faire tester';
 $string['chat:starter_explain'] = 'Expliquer ceci';
 $string['chat:starter_key_concepts'] = 'Concepts clés';
 $string['chat:starter_study_plan'] = 'Plan d\'étude';
+$string['chat:starter_ask_anything'] = 'Posez une question';
+$string['chat:starter_review_practice'] = 'Réviser et pratiquer';
 $string['chat:starter_help_me'] = 'Aide IA';
 $string['chat:starter_ell_practice'] = 'Pratiquer l\'oral';
 $string['chat:starter_ell_pronunciation'] = 'Prononciation ELL';

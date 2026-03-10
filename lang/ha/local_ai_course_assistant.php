@@ -317,10 +317,13 @@ $string['chat:quiz_correct_answer'] = 'Amsar daidai';
 
 // Conversation starters.
 $string['chat:starters_label'] = 'Fara tattaunawa';
+$string['chat:starter_help_page'] = 'Taimako da wannan shafi';
 $string['chat:starter_quiz'] = 'Yi Mini Gwaji';
 $string['chat:starter_explain'] = 'Bayyana Wannan';
 $string['chat:starter_key_concepts'] = 'Manyan Ra\'ayoyi';
 $string['chat:starter_study_plan'] = 'Shirin Karatu';
+$string['chat:starter_ask_anything'] = 'Tambayi komai';
+$string['chat:starter_review_practice'] = 'Bita da aiki';
 $string['chat:starter_help_me'] = 'Taimakon AI';
 $string['chat:starter_ell_practice'] = 'Yi Magana';
 $string['chat:starter_ell_pronunciation'] = 'Furta ELL';

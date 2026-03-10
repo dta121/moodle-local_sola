@@ -314,10 +314,13 @@ $string['chat:quiz_your_answer'] = 'Impendulo yakho';
 $string['chat:quiz_correct_answer'] = 'Impendulo efanele';
 
 $string['chat:starters_label'] = 'Iziqalo zengxoxo';
+$string['chat:starter_help_page'] = 'Usizo ngaleli khasi';
 $string['chat:starter_quiz'] = 'Ngihlole';
 $string['chat:starter_explain'] = 'Chaza Lokhu';
 $string['chat:starter_key_concepts'] = 'Imiqondo Ebalulekile';
 $string['chat:starter_study_plan'] = 'Uhlelo Lokufunda';
+$string['chat:starter_ask_anything'] = 'Buza noma yini';
+$string['chat:starter_review_practice'] = 'Buyekeza futhi uzipratize';
 $string['chat:starter_help_me'] = 'Usizo Lwe-AI';
 $string['chat:starter_ell_practice'] = 'Zilolonga Ukukhuluma';
 $string['chat:starter_ell_pronunciation'] = 'Ukuphimisa Kwe-ELL';

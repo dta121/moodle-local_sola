@@ -314,10 +314,13 @@ $string['chat:quiz_your_answer'] = 'Ваш ответ';
 $string['chat:quiz_correct_answer'] = 'Правильный ответ';
 
 $string['chat:starters_label'] = 'Начало разговора';
+$string['chat:starter_help_page'] = 'Помощь с этой страницей';
 $string['chat:starter_quiz'] = 'Проверь меня';
 $string['chat:starter_explain'] = 'Объясни это';
 $string['chat:starter_key_concepts'] = 'Ключевые понятия';
 $string['chat:starter_study_plan'] = 'План обучения';
+$string['chat:starter_ask_anything'] = 'Спросите что угодно';
+$string['chat:starter_review_practice'] = 'Повторение и практика';
 $string['chat:starter_help_me'] = 'Помощь ИИ';
 $string['chat:starter_ell_practice'] = 'Практика речи';
 $string['chat:starter_ell_pronunciation'] = 'Произношение ELL';
