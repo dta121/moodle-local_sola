@@ -372,6 +372,57 @@ define([
     };
 
     /**
+     * Preferred microphone constraints for live voice.
+     * Echo cancellation keeps assistant playback from retriggering the mic path.
+     *
+     * @returns {Object}
+     */
+    const getRealtimeMicConstraints = function() {
+        return {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            },
+        };
+    };
+
+    /**
+     * Request microphone access for Realtime voice mode.
+     *
+     * @returns {Promise<MediaStream>}
+     */
+    const getRealtimeMicStream = function() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return Promise.reject(new Error('Microphone access is not available in this browser.'));
+        }
+        return navigator.mediaDevices.getUserMedia(getRealtimeMicConstraints());
+    };
+
+    /**
+     * Normalize browser getUserMedia failures into user-facing copy.
+     *
+     * @param {Error|DOMException|Object|string|null} err
+     * @returns {string}
+     */
+    const formatRealtimeVoiceStartError = function(err) {
+        const name = err && err.name ? err.name : '';
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+            return 'Microphone access was blocked. Please allow microphone access and try again.';
+        }
+        if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            return 'No microphone was found on this device.';
+        }
+        if (name === 'NotReadableError' || name === 'TrackStartError') {
+            return 'Your microphone is busy in another app. Close the other app and try again.';
+        }
+        if (err && err.message) {
+            return err.message;
+        }
+        return 'Could not start live voice chat.';
+    };
+
+    /**
      * Legacy speaking practice can use browser STT or MediaRecorder + Whisper fallback.
      *
      * @returns {boolean}
@@ -1328,10 +1379,6 @@ define([
             return;
         }
 
-        const micPromise = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
-            ? navigator.mediaDevices.getUserMedia({audio: true}).catch(function() { return null; })
-            : Promise.resolve(null);
-
         const endSession = function() {
             Realtime.disconnect();
             teardownVoiceSessionUi();
@@ -1348,6 +1395,11 @@ define([
             sessionStarted = true;
             UI.clearSuggestions();
             UI.setVoiceState('connecting');
+            let acquiredMicStream = null;
+            const micPromise = getRealtimeMicStream().then(function(stream) {
+                acquiredMicStream = stream;
+                return stream;
+            });
 
             Promise.all([
                 Repo.getRealtimeToken(courseId, getRealtimeVoiceRequestContext(root)),
@@ -1401,9 +1453,13 @@ define([
                     micStream
                 );
             }).catch(function(err) {
+                if (acquiredMicStream) {
+                    acquiredMicStream.getTracks().forEach(function(track) { track.stop(); });
+                    acquiredMicStream = null;
+                }
                 UI.setVoiceState('disconnected');
                 teardownVoiceSessionUi();
-                addAssistantMsg((err && err.message) ? err.message : 'Could not start live voice chat.');
+                addAssistantMsg(formatRealtimeVoiceStartError(err));
             });
         };
 

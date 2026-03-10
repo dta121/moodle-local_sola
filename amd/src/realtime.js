@@ -47,6 +47,10 @@ define([], function() {
     var scriptProcessor = null;
     /** @type {MediaStream|null} */
     var micStream = null;
+    /** @type {MediaStreamAudioSourceNode|null} */
+    var micSourceNode = null;
+    /** @type {GainNode|null} */
+    var micMonitorNode = null;
     /** @type {string} Current connection state */
     var currentState = 'disconnected';
     /** @type {string[]} Accumulated base64 PCM16 audio chunks for current response */
@@ -85,6 +89,14 @@ define([], function() {
     var SESSION_CAP_MS = 15 * 60 * 1000;
     /** Warning fires 1 minute before cap */
     var SESSION_WARN_MS = SESSION_CAP_MS - 60 * 1000;
+    /** Shared microphone constraints for voice chat */
+    var MIC_CONSTRAINTS = {
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+        },
+    };
 
     /**
      * Set state and notify callback.
@@ -137,6 +149,50 @@ define([], function() {
             binary += String.fromCharCode(bytes[i]);
         }
         return btoa(binary);
+    };
+
+    /**
+     * Convert microphone startup failures into clearer user-facing copy.
+     * @param {Error|DOMException|Object|string|null} err
+     * @returns {string}
+     */
+    var formatMicError = function(err) {
+        var name = err && err.name ? err.name : '';
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+            return 'Microphone access was blocked. Please allow microphone access and try again.';
+        }
+        if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            return 'No microphone was found on this device.';
+        }
+        if (name === 'NotReadableError' || name === 'TrackStartError') {
+            return 'Your microphone is busy in another app. Close the other app and try again.';
+        }
+        if (err && err.message) {
+            return err.message;
+        }
+        return 'Microphone access failed.';
+    };
+
+    /**
+     * Stop any in-progress assistant playback immediately.
+     */
+    var interruptAssistantPlayback = function() {
+        if (masterGain && audioCtx) {
+            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        }
+        if (currentSource) {
+            try { currentSource.stop(); } catch (e) { /**/ }
+            currentSource = null;
+        }
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        if (overlayRoot) {
+            overlayRoot.style.removeProperty('--aica-voice-level');
+        }
+        analyser = null;
+        audioChunks = [];
     };
 
     /**
@@ -263,16 +319,9 @@ define([], function() {
     };
 
     /**
-     * Set up microphone capture with client-side VAD.
-     * Only transmits audio chunks while the user is speaking — saves ~40% input tokens
-     * compared to sending continuous audio to server_vad.
-     *
-     * Algorithm:
-     *   - Measure RMS energy every 4096-sample block
-     *   - Above threshold → speaking; send audio + mark speechActive
-     *   - Below threshold for SILENCE_FRAMES → commit turn and request response
-     *   - Pre-speech ring buffer holds PREFILL_FRAMES of audio to avoid clipping
-     *     the very start of each utterance
+     * Set up microphone capture for OpenAI server-side turn detection.
+     * Streams PCM audio continuously whenever the assistant is not speaking so
+     * OpenAI can detect turn boundaries on the server.
      */
     var startMicCapture = function() {
         // Use a pre-acquired stream (passed from the user-gesture context) when available.
@@ -282,7 +331,7 @@ define([], function() {
         var getStream = micStreamIn
             ? Promise.resolve(micStreamIn)
             : (navigator.mediaDevices && navigator.mediaDevices.getUserMedia
-                ? navigator.mediaDevices.getUserMedia({audio: true})
+                ? navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS)
                 : Promise.reject(new Error('getUserMedia not supported')));
         micStreamIn = null; // consume it so a reconnect does a fresh getUserMedia
 
@@ -298,85 +347,38 @@ define([], function() {
                 audioCtx.resume().catch(function() {/**/});
             }
 
-            var SPEECH_THRESHOLD = 0.012;  // RMS energy threshold (0–1 normalised)
-            var SILENCE_FRAMES   = 20;     // ~1.7 s of silence before committing turn
-            var PREFILL_FRAMES   = 3;      // frames of pre-speech to prepend (avoids clipping)
-
-            var silenceCount  = 0;
-            var speechActive  = false;
-            var prefillBuffer = [];        // ring buffer of recent encoded chunks
-
-            var source = audioCtx.createMediaStreamSource(stream);
+            micSourceNode = audioCtx.createMediaStreamSource(stream);
             scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
             var nativeRate = audioCtx.sampleRate;
 
             scriptProcessor.onaudioprocess = function(e) {
                 if (!ws || ws.readyState !== WebSocket.OPEN) { return; }
+                if (currentState === 'speaking') { return; }
 
                 var raw    = e.inputBuffer.getChannelData(0);
                 var float32 = resampleTo24k(raw, nativeRate);
                 var int16  = float32ToInt16(float32);
-                var b64    = arrayBufferToBase64(int16.buffer);
-
-                // Compute RMS energy of the raw block.
-                var sum = 0;
-                for (var i = 0; i < raw.length; i++) { sum += raw[i] * raw[i]; }
-                var rms = Math.sqrt(sum / raw.length);
-
-                if (rms >= SPEECH_THRESHOLD) {
-                    if (!speechActive) {
-                        // Flush pre-speech buffer first to avoid clipping utterance start.
-                        for (var pi = 0; pi < prefillBuffer.length; pi++) {
-                            ws.send(JSON.stringify({type: 'input_audio_buffer.append', audio: prefillBuffer[pi]}));
-                        }
-                        prefillBuffer = [];
-                        speechActive = true;
-                        // Barge-in: if SOLA is currently speaking, silence her immediately.
-                        if (currentState === 'speaking') {
-                            if (masterGain && audioCtx) {
-                                masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-                            }
-                            if (currentSource) {
-                                try { currentSource.stop(); } catch (ex) { /**/ }
-                                currentSource = null;
-                            }
-                            audioChunks = [];
-                            if (ws && ws.readyState === WebSocket.OPEN) {
-                                ws.send(JSON.stringify({type: 'response.cancel'}));
-                            }
-                        }
-                        setState('listening');
-                    }
-                    silenceCount = 0;
-                    ws.send(JSON.stringify({type: 'input_audio_buffer.append', audio: b64}));
-                } else {
-                    // Keep a rolling pre-speech buffer (capped at PREFILL_FRAMES).
-                    prefillBuffer.push(b64);
-                    if (prefillBuffer.length > PREFILL_FRAMES) { prefillBuffer.shift(); }
-
-                    if (speechActive) {
-                        silenceCount++;
-                        // Send silence frames during the tail of the utterance.
-                        ws.send(JSON.stringify({type: 'input_audio_buffer.append', audio: b64}));
-                        if (silenceCount >= SILENCE_FRAMES) {
-                            speechActive = false;
-                            silenceCount = 0;
-                            // Commit the buffered audio and ask the model to respond.
-                            ws.send(JSON.stringify({type: 'input_audio_buffer.commit'}));
-                            ws.send(JSON.stringify({type: 'response.create'}));
-                        }
-                    }
+                if (!int16.length) {
+                    return;
                 }
+                ws.send(JSON.stringify({
+                    type: 'input_audio_buffer.append',
+                    audio: arrayBufferToBase64(int16.buffer),
+                }));
             };
 
             // Muted gain node — keeps script processor in audio graph without echo.
-            var dummyGain = audioCtx.createGain();
-            dummyGain.gain.value = 0;
-            dummyGain.connect(audioCtx.destination);
-            source.connect(scriptProcessor);
-            scriptProcessor.connect(dummyGain);
+            micMonitorNode = audioCtx.createGain();
+            micMonitorNode.gain.value = 0;
+            micMonitorNode.connect(audioCtx.destination);
+            micSourceNode.connect(scriptProcessor);
+            scriptProcessor.connect(micMonitorNode);
         }).catch(function(err) {
-            if (onErrorCb) { onErrorCb('Microphone access denied: ' + err.message); }
+            if (onErrorCb) {
+                onErrorCb(formatMicError(err));
+                onErrorCb = null;
+            }
+            disconnect();
         });
     };
 
@@ -401,10 +403,25 @@ define([], function() {
                 break;
 
             case 'session.updated':
-                // Session config confirmed. response.create was already queued in the open
-                // handler (immediately after session.update), so no action needed here —
-                // sending it again would trigger a second greeting.
+                // Session config confirmed. The initial prompt, if any, is sent by chat.js
+                // once the session settles into idle.
                 setState('idle');
+                break;
+
+            case 'input_audio_buffer.speech_started':
+                if (currentState === 'speaking') {
+                    interruptAssistantPlayback();
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({type: 'response.cancel'}));
+                    }
+                }
+                setState('listening');
+                break;
+
+            case 'input_audio_buffer.speech_stopped':
+                if (currentState !== 'disconnected') {
+                    setState('connecting');
+                }
                 break;
 
             case 'response.output_audio.delta':
@@ -543,7 +560,12 @@ define([], function() {
                         input: {
                             format: {type: 'audio/pcm', rate: 24000},
                             transcription: {model: 'whisper-1'},
-                            turn_detection: null,  // client-side VAD — only transmit when speaking
+                            turn_detection: {
+                                type: 'server_vad',
+                                create_response: true,
+                                prefix_padding_ms: 300,
+                                silence_duration_ms: 650,
+                            },
                         },
                         output: {
                             format: {type: 'audio/pcm', rate: 24000},
@@ -658,6 +680,14 @@ define([], function() {
             scriptProcessor.disconnect();
             scriptProcessor = null;
         }
+        if (micSourceNode) {
+            try { micSourceNode.disconnect(); } catch (e) { /**/ }
+            micSourceNode = null;
+        }
+        if (micMonitorNode) {
+            try { micMonitorNode.disconnect(); } catch (e) { /**/ }
+            micMonitorNode = null;
+        }
         if (micStream) {
             micStream.getTracks().forEach(function(t) { t.stop(); });
             micStream = null;
@@ -702,14 +732,7 @@ define([], function() {
         }
         // Interrupt any current AI speech (barge-in).
         if (currentState === 'speaking') {
-            if (masterGain && audioCtx) {
-                masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-            }
-            if (currentSource) {
-                try { currentSource.stop(); } catch (e) { /**/ }
-                currentSource = null;
-            }
-            audioChunks = [];
+            interruptAssistantPlayback();
             ws.send(JSON.stringify({type: 'response.cancel'}));
         }
 
