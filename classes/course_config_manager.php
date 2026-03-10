@@ -95,7 +95,7 @@ class course_config_manager {
      */
     public static function get_effective_config(int $courseid): array {
         $global = [
-            'provider'    => get_config('local_ai_course_assistant', 'provider') ?: 'claude',
+            'provider'    => get_config('local_ai_course_assistant', 'provider') ?: 'openai',
             'apikey'      => get_config('local_ai_course_assistant', 'apikey') ?: '',
             'model'       => get_config('local_ai_course_assistant', 'model') ?: '',
             'apibaseurl'  => get_config('local_ai_course_assistant', 'apibaseurl') ?: '',
