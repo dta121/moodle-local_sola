@@ -89,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ragcourse = optional_param('rag_course_enabled', 0, PARAM_INT);
     set_config('rag_enabled_course_' . $courseid, $ragcourse, 'local_ai_course_assistant');
 
+    $englishlock = optional_param('english_lock_enabled', 0, PARAM_INT);
+    set_config('english_lock_course_' . $courseid, $englishlock, 'local_ai_course_assistant');
+
     $starteroverrides = [];
     foreach (starter_manager::get_global_starters() as $starter) {
         $starterkey = clean_param((string)($starter['key'] ?? ''), PARAM_ALPHANUMEXT);
@@ -112,6 +115,7 @@ $realtimeenabled = (bool)get_config('local_ai_course_assistant', 'realtime_enabl
 $ragenabled = (bool)get_config('local_ai_course_assistant', 'rag_enabled');
 $ragcourseraw = get_config('local_ai_course_assistant', 'rag_enabled_course_' . $courseid);
 $ragcourseenabled = ($ragcourseraw === false) || (bool)$ragcourseraw;
+$englishlockenabled = (bool)get_config('local_ai_course_assistant', 'english_lock_course_' . $courseid);
 
 // TTS available when an OpenAI key is configured globally.
 $realtimeapikey = get_config('local_ai_course_assistant', 'realtime_apikey');
@@ -288,6 +292,30 @@ echo html_writer::div(
                     <small class="form-text text-muted">
                         <?php echo get_string('settings:systemprompt_desc', 'local_ai_course_assistant'); ?>
                     </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><?php echo get_string('coursesettings:english_lock', 'local_ai_course_assistant'); ?></h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted"><?php echo get_string('coursesettings:english_lock_desc', 'local_ai_course_assistant'); ?></p>
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label" for="english_lock_enabled">
+                    <?php echo get_string('coursesettings:english_lock', 'local_ai_course_assistant'); ?>
+                </label>
+                <div class="col-sm-9">
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="english_lock_enabled"
+                               name="english_lock_enabled" value="1"
+                               <?php if ($englishlockenabled) { echo 'checked'; } ?>>
+                        <label class="custom-control-label" for="english_lock_enabled">
+                            <?php echo get_string('coursesettings:english_lock_enable', 'local_ai_course_assistant'); ?>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>

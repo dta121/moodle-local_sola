@@ -109,10 +109,13 @@ class get_realtime_token extends external_api {
             ?: \local_ai_course_assistant\voice_catalog::DEFAULT_VOICE;
         $voice = \local_ai_course_assistant\voice_catalog::realtime_voice($voicepreference);
         $completion = max(0, min(100, (int)$params['completion']));
+        $lang = get_config('local_ai_course_assistant', 'english_lock_course_' . $params['courseid'])
+            ? 'en'
+            : $params['lang'];
         $instructions = \local_ai_course_assistant\context_builder::build_realtime_voice_instructions(
             $params['courseid'],
             $USER->id,
-            $params['lang'],
+            $lang,
             $params['pageid'],
             $params['pagetitle'],
             $params['pageheading'],

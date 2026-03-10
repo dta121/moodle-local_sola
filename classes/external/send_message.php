@@ -88,7 +88,8 @@ class send_message extends external_api {
         }
 
         // Build context and get history.
-        $systemprompt = context_builder::build_system_prompt($params['courseid'], $userid, '', $retrievedchunks);
+        $lang = get_config('local_ai_course_assistant', 'english_lock_course_' . $params['courseid']) ? 'en' : '';
+        $systemprompt = context_builder::build_system_prompt($params['courseid'], $userid, $lang, $retrievedchunks);
         $history = conversation_manager::get_history_for_api($conv->id);
         $responseoptions = [];
         $maxtokens = (int) get_config('local_ai_course_assistant', 'max_tokens');

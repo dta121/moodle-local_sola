@@ -69,6 +69,10 @@ $clientcontextlevel = optional_param('clientcontextlevel', '', PARAM_ALPHA);
 $context = context_course::instance($courseid);
 require_capability('local/ai_course_assistant:use', $context);
 
+if (get_config('local_ai_course_assistant', 'english_lock_course_' . $courseid)) {
+    $lang = 'en';
+}
+
 // Rate limiting checks.
 if (rate_limiter::is_rate_limited($USER->id, 'sse_stream', 20, 60)) {
     http_response_code(429);
