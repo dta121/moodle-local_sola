@@ -25,6 +25,9 @@ namespace local_ai_course_assistant\provider;
  */
 abstract class base_provider implements provider_interface {
 
+    /** @var int Maximum error response excerpt to keep from streaming requests */
+    private const STREAM_ERROR_EXCERPT_LIMIT = 8192;
+
     /** @var string API key */
     protected string $apikey;
 
@@ -120,6 +123,7 @@ abstract class base_provider implements provider_interface {
      */
     protected function http_post_stream(string $url, array $headers, string $body, callable $writecallback): void {
         $ch = curl_init();
+        $responseexcerpt = '';
 
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -128,7 +132,11 @@ abstract class base_provider implements provider_interface {
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_TIMEOUT => 300,
-            CURLOPT_WRITEFUNCTION => function ($ch, $data) use ($writecallback) {
+            CURLOPT_WRITEFUNCTION => function ($ch, $data) use ($writecallback, &$responseexcerpt) {
+                if (strlen($responseexcerpt) < self::STREAM_ERROR_EXCERPT_LIMIT) {
+                    $remaining = self::STREAM_ERROR_EXCERPT_LIMIT - strlen($responseexcerpt);
+                    $responseexcerpt .= substr($data, 0, $remaining);
+                }
                 $writecallback($data);
                 return strlen($data);
             },
@@ -147,7 +155,7 @@ abstract class base_provider implements provider_interface {
         }
 
         if ($httpcode >= 400) {
-            $this->check_http_error($httpcode, '');
+            $this->check_http_error($httpcode, trim($responseexcerpt));
         }
     }
 
@@ -163,6 +171,8 @@ abstract class base_provider implements provider_interface {
             return;
         }
 
+        $errordetail = $this->extract_error_detail($response);
+
         if ($httpcode === 401 || $httpcode === 403) {
             throw new \moodle_exception('chat:error_auth', 'local_ai_course_assistant');
         }
@@ -175,7 +185,36 @@ abstract class base_provider implements provider_interface {
             throw new \moodle_exception('chat:error_unavailable', 'local_ai_course_assistant');
         }
 
-        throw new \moodle_exception('chat:error', 'local_ai_course_assistant', '', null, "HTTP {$httpcode}: {$response}");
+        throw new \moodle_exception(
+            'chat:error',
+            'local_ai_course_assistant',
+            '',
+            null,
+            "HTTP {$httpcode}: {$errordetail}"
+        );
+    }
+
+    /**
+     * Extract a readable error detail from an API response body.
+     *
+     * @param string $response
+     * @return string
+     */
+    protected function extract_error_detail(string $response): string {
+        $response = trim($response);
+        if ($response === '') {
+            return '';
+        }
+
+        $data = json_decode($response, true);
+        if (is_array($data)) {
+            $message = trim((string) ($data['error']['message'] ?? $data['message'] ?? ''));
+            if ($message !== '') {
+                return $message;
+            }
+        }
+
+        return $response;
     }
 
     /**
