@@ -446,9 +446,10 @@ define([
         messagesContainer = root.querySelector('.local-ai-course-assistant__messages');
 
         // Scroll-to-bottom arrow — appears when the user has scrolled up.
-        // Positioned outside the messages container so it doesn't affect scroll height.
+        // Keep it inside the messages pane so it stays visually in the conversation window.
         scrollDownBtn = document.createElement('button');
         scrollDownBtn.className = 'local-ai-course-assistant__scroll-down';
+        scrollDownBtn.type = 'button';
         scrollDownBtn.setAttribute('aria-label', 'Scroll to bottom');
         scrollDownBtn.innerHTML =
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"' +
@@ -465,8 +466,7 @@ define([
                 messagesContainer.scrollTo({top: messagesContainer.scrollHeight, behavior: 'smooth'});
             }
         });
-        // Place outside messages container so it doesn't add to scroll height.
-        drawer.appendChild(scrollDownBtn);
+        messagesContainer.appendChild(scrollDownBtn);
 
         const updateScrollBtn = function() {
             if (!scrollDownBtn || !messagesContainer) { return; }
@@ -547,6 +547,35 @@ define([
         renderHistoryPanel([]);
         setBottomMode('chat');
         syncCloseTogglePosition();
+    };
+
+    /**
+     * Ensure the scroll-down button stays mounted as the last child in the messages pane.
+     */
+    const ensureScrollDownButtonMounted = function() {
+        if (!messagesContainer || !scrollDownBtn) {
+            return;
+        }
+        if (scrollDownBtn.parentNode !== messagesContainer) {
+            messagesContainer.appendChild(scrollDownBtn);
+        }
+    };
+
+    /**
+     * Insert an element into the messages pane ahead of the scroll-down overlay.
+     *
+     * @param {HTMLElement} el
+     */
+    const appendMessageNode = function(el) {
+        if (!messagesContainer || !el) {
+            return;
+        }
+        ensureScrollDownButtonMounted();
+        if (scrollDownBtn && scrollDownBtn.parentNode === messagesContainer) {
+            messagesContainer.insertBefore(el, scrollDownBtn);
+            return;
+        }
+        messagesContainer.appendChild(el);
     };
 
     /**
@@ -1262,7 +1291,9 @@ define([
                 let node = el;
                 while (node) {
                     const next = node.nextSibling;
-                    node.remove();
+                    if (node !== scrollDownBtn) {
+                        node.remove();
+                    }
                     node = next;
                 }
                 // Update lastUserMsgEl to the new last user message (if any).
@@ -1301,7 +1332,7 @@ define([
             el.appendChild(timeEl);
         }
 
-        messagesContainer.appendChild(el);
+        appendMessageNode(el);
         if (role === 'assistant') {
             // Bring the top of SOLA's reply into view so students read from the start.
             scrollToMessageTop(el);
@@ -1691,7 +1722,7 @@ define([
         const el = document.createElement('div');
         el.className = 'local-ai-course-assistant__date-separator';
         el.innerHTML = '<span>' + label + '</span>';
-        messagesContainer.appendChild(el);
+        appendMessageNode(el);
     };
 
     /**
@@ -1699,6 +1730,10 @@ define([
      */
     const clearMessages = function() {
         messagesContainer.innerHTML = '';
+        ensureScrollDownButtonMounted();
+        if (scrollDownBtn) {
+            scrollDownBtn.classList.remove('local-ai-course-assistant__scroll-down--visible');
+        }
         streamingEl = null;
         lastUserMsgEl = null;
     };
@@ -2442,7 +2477,8 @@ define([
 
         // Accumulate assistant deltas into the last assistant voice message.
         if (role === 'assistant') {
-            const last = messagesContainer.querySelector('.aica-voice-msg--assistant:last-child');
+            const assistantMsgs = messagesContainer.querySelectorAll('.aica-voice-msg--assistant');
+            const last = assistantMsgs.length ? assistantMsgs[assistantMsgs.length - 1] : null;
             if (last) {
                 const content = last.querySelector('.aica-voice-msg__text');
                 if (content) { content.textContent += text; }
@@ -2457,7 +2493,7 @@ define([
         content.className = 'aica-voice-msg__text';
         content.textContent = text;
         msg.appendChild(content);
-        messagesContainer.appendChild(msg);
+        appendMessageNode(msg);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     };
 
@@ -3289,7 +3325,7 @@ define([
             container.appendChild(btn);
         });
 
-        messagesContainer.appendChild(container);
+        appendMessageNode(container);
         scrollToBottom();
     };
 
