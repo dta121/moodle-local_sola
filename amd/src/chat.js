@@ -1,4 +1,4 @@
-// This file is part of Moodle - http://moodle.org/
+﻿// This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -962,26 +962,13 @@ define([
             try {
                 localStorage.setItem(INTRO_DISMISSED_KEY, '1');
             } catch (e) { /**/ }
-        }
-
-        // First-ever visit: pulse the toggle to attract attention (don't auto-open).
-        // Subsequent visits stay closed until the user opens the drawer manually.
-        // Mobile (≤600px) never auto-opens — full-screen takeover is too aggressive.
+        }        // First-ever visit: pulse the toggle to attract attention, but keep
+        // the drawer closed until the user opens it.
         try {
-            const introDismissed = localStorage.getItem('ai_course_assistant_intro_dismissed');
-            const visitedKey = 'ai_course_assistant_visited_' + courseId;
-            const isMobile = window.innerWidth <= 600;
-            if (!introDismissed) {
-                // True first-timer — pulse the toggle until they click it.
+            if (!isIntroDismissed(root)) {
                 var toggleEl = document.getElementById('local-ai-course-assistant-toggle');
                 if (toggleEl) {
                     toggleEl.classList.add('aica-first-visit');
-                }
-            } else if (!localStorage.getItem(visitedKey)) {
-                localStorage.setItem(visitedKey, '1');
-                if (!isMobile) {
-                    // Returning user, new course, desktop — auto-open.
-                    // Auto-open disabled to avoid a flicker on course entry.
                 }
             }
         } catch (e) {
@@ -1004,7 +991,7 @@ define([
         const stored = Speech.getLang();
 
         if (stored) {
-            // Already has a saved preference — update the label and starter texts.
+            // Already has a saved preference â€” update the label and starter texts.
             const info = Speech.getLangInfo(stored);
             if (info) {
                 UI.setLangLabel(info.name);
@@ -1025,7 +1012,7 @@ define([
             }
         }
 
-        // No language set — show English label so chip is always meaningful.
+        // No language set â€” show English label so chip is always meaningful.
         UI.setLangLabel('English');
     };
 
@@ -1149,7 +1136,7 @@ define([
             });
         }
 
-        // Language chip — opens compact language picker.
+        // Language chip â€” opens compact language picker.
         if (els.langBtn) {
             els.langBtn.addEventListener('click', function() {
                 UI.showLangPicker(
@@ -1174,7 +1161,7 @@ define([
             starterVoiceBtn.addEventListener('click', handleMic);
         }
 
-        // Settings panel button (gear icon) — opens language / avatar / voice settings.
+        // Settings panel button (gear icon) â€” opens language / avatar / voice settings.
         const settingsPanelBtn = els.root ? els.root.querySelector('.local-ai-course-assistant__btn-settings-panel') : null;
         if (settingsPanelBtn) {
             settingsPanelBtn.addEventListener('click', handleSettingsPanel);
@@ -1188,7 +1175,7 @@ define([
             debugCopyBtn.addEventListener('click', handleContextDebugCopy);
         }
 
-        // Voice mode button (header shortcut — triggers Practice Speaking / Option B).
+        // Voice mode button (header shortcut â€” triggers Practice Speaking / Option B).
         const voiceBtn = els.root ? els.root.querySelector('.local-ai-course-assistant__btn-voice') : null;
         if (voiceBtn) {
             voiceBtn.addEventListener('click', function() {
@@ -1202,7 +1189,7 @@ define([
             feedbackBtn.addEventListener('click', function() {
                 UI.showFeedbackPanel(function(rating, comment, deviceInfo) {
                     Repo.submitFeedback(courseId, rating, comment, deviceInfo).catch(function() {
-                        // Silently ignore — feedback is best-effort.
+                        // Silently ignore â€” feedback is best-effort.
                     });
                 });
             });
@@ -1267,7 +1254,7 @@ define([
         const isGuided = topic === '__guided__';
         const isEmpty  = !topic || topic === '';
 
-        // Help With This Page — combines old "Explain This" + "Key Concepts".
+        // Help With This Page â€” combines old "Explain This" + "Key Concepts".
         if (starterKey === 'help-page' || starterKey === 'explain' || starterKey === 'help-lesson') {
             if (isGuided) {
                 return 'Based on my progress and what I\'ve been asking about, which concept from ' +
@@ -1307,7 +1294,7 @@ define([
                 'how much time I have available, then create a focused study plan.';
         }
 
-        // Ask Anything — replaces old "AI Coach".
+        // Ask Anything â€” replaces old "AI Coach".
         if (starterKey === 'ask-anything' || starterKey === 'ai-coach') {
             const pageRef = currentPageTitle ? ' about "' + currentPageTitle + '"' : '';
             return 'I have a question' + pageRef + '. Can you help me? I\'d like to explore this ' +
@@ -1368,13 +1355,13 @@ define([
             return;
         }
 
-        // Practice Speaking — Option B (SSE + TTS + Web Speech API).
+        // Practice Speaking â€” Option B (SSE + TTS + Web Speech API).
         if (starterType === 'voice' || starterKey === 'ell-practice') {
             handlePracticeSpeaking();
             return;
         }
 
-        // ELL Pronunciation — Option C (Realtime), phoneme-level feedback.
+        // ELL Pronunciation â€” Option C (Realtime), phoneme-level feedback.
         if (starterType === 'pronunciation' || starterKey === 'ell-pronunciation') {
             handleELLPronunciation();
             return;
@@ -1432,7 +1419,7 @@ define([
     };
 
     /**
-     * Handle reset/home button — cancel any active panels and restore the conversation
+     * Handle reset/home button â€” cancel any active panels and restore the conversation
      * starters. Message history remains visible so students can scroll back.
      */
     const handleReset = function() {
@@ -1464,7 +1451,7 @@ define([
     };
 
     /**
-     * Handle the settings panel gear button — show language, avatar, and voice settings.
+     * Handle the settings panel gear button â€” show language, avatar, and voice settings.
      */
     const handleSettingsPanel = function() {
         const root = UI.getElements().root;
@@ -1557,12 +1544,12 @@ define([
     };
 
     /**
-     * Handle suggestion chip click — fill input and send as new message.
+     * Handle suggestion chip click â€” fill input and send as new message.
      *
      * @param {string} text The suggestion text to send
      */
     const handleSuggestionClick = function(text) {
-        // Special chip: "Continue: <topic>" — build a resume prompt.
+        // Special chip: "Continue: <topic>" â€” build a resume prompt.
         if (text.startsWith('Continue: ')) {
             const rawTopic = text.slice('Continue: '.length).replace(/ \(last quiz: \d+%\)$/, '');
             UI.clearSuggestions();
@@ -2168,7 +2155,7 @@ define([
     };
 
     /**
-     * Handle mic button click — start or stop speech recognition.
+     * Handle mic button click â€” start or stop speech recognition.
      */
     const handleMic = function() {
         if (Speech.isRecording()) {
@@ -2276,7 +2263,7 @@ define([
      * @param {string}        text       Plain text to read aloud
      * @param {string}        ttsUrl     URL of tts.php
      * @param {Function}      callback   Called when speech ends or fails
-     * @param {Array|null}    wordSpans  From UI.startWordHighlight — for word highlighting
+     * @param {Array|null}    wordSpans  From UI.startWordHighlight â€” for word highlighting
      * @param {string|null}   cleanText  Clean plain text matching the wordSpans
      */
     const speakWithOpenAI = function(text, ttsUrl, callback, wordSpans, cleanText) {
@@ -2305,7 +2292,7 @@ define([
                     byteArr[i] = byteChars.charCodeAt(i);
                 }
 
-                // ── AudioContext path (iOS-compatible) ────────────────────────────
+                // â”€â”€ AudioContext path (iOS-compatible) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 // sharedAudioCtx was unlocked synchronously in handleSpeak() within
                 // the user gesture; decoding + playing here (in a Promise chain) is
                 // safe because the context is already running.
@@ -2359,14 +2346,14 @@ define([
                         }
                         source.start(0);
                     }, function() {
-                        // decodeAudioData failed — fall back to browser TTS.
+                        // decodeAudioData failed â€” fall back to browser TTS.
                         currentAudio = null;
                         Speech.speak(text, callback);
                     });
                     return;
                 }
 
-                // ── HTMLAudioElement fallback (non-iOS / no AudioContext) ──────────
+                // â”€â”€ HTMLAudioElement fallback (non-iOS / no AudioContext) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 const blob = new Blob([byteArr], {type: data.type || 'audio/mpeg'});
                 const objUrl = URL.createObjectURL(blob);
                 const audio = new Audio(objUrl);
@@ -2500,7 +2487,7 @@ define([
 
     /**
      * Handle expand/collapse button click.
-     * On mobile (≤600px): toggles half-screen minimized state.
+     * On mobile (â‰¤600px): toggles half-screen minimized state.
      * On desktop: toggles the wider expanded state.
      */
     const handleExpand = function() {
@@ -2549,7 +2536,7 @@ define([
     };
 
     /**
-     * Handle quiz button click — toggles quiz mode on/off.
+     * Handle quiz button click â€” toggles quiz mode on/off.
      */
     const handleQuiz = function() {
         const root = document.getElementById('local-ai-course-assistant');
@@ -2621,7 +2608,7 @@ define([
                                 'Solid effort! A quick review of the tricky parts will get you even further.';
                         } else {
                             encourageMsg = 'Quiz complete: **' + score + '/' + total + '** (' + pctVal + '%) on *' + topic + '*. ' +
-                                'This topic trips a lot of people up — that\'s OK. Let\'s review the material together and try again.';
+                                'This topic trips a lot of people up â€” that\'s OK. Let\'s review the material together and try again.';
                         }
                         addAssistantMsg(encourageMsg);
                         // Prepare adaptive follow-up chips for when user exits the summary.
@@ -2735,7 +2722,7 @@ define([
             let chips;
             if (daysSince >= 5) {
                 msg = 'Welcome back, **' + name + '**! It\'s been a while (' + daysAgo + ' days). \ud83d\udc4b\n\n' +
-                    'No worries — picking back up is what matters most. ' +
+                    'No worries â€” picking back up is what matters most. ' +
                     'Last time you were working on **' + topic + '**.' +
                     studyNote + quizNote +
                     '\n\nWould you like a quick refresher, or would you rather start fresh?';
@@ -3146,9 +3133,6 @@ define([
         var isFirstVisit = toggleEl && toggleEl.classList.contains('aica-first-visit');
         if (isFirstVisit) {
             toggleEl.classList.remove('aica-first-visit');
-            try {
-                localStorage.setItem('ai_course_assistant_visited_' + courseId, '1');
-            } catch (e) { /**/ }
         }
         // Pre-apply welcome class before opening so the drawer doesn't flash
         // empty content on mobile before the welcome panel is injected.
@@ -3212,7 +3196,7 @@ define([
             const lastDate = stored.lastDate || '';
 
             if (lastDate === today) {
-                // Already opened today — no change, no notification.
+                // Already opened today â€” no change, no notification.
                 return;
             }
 
@@ -3220,7 +3204,7 @@ define([
             if (lastDate === yesterday) {
                 streak += 1; // Consecutive day.
             } else {
-                streak = 1; // Gap or first time — start fresh.
+                streak = 1; // Gap or first time â€” start fresh.
             }
 
             localStorage.setItem(key, JSON.stringify({streak: streak, lastDate: today}));
@@ -3231,7 +3215,7 @@ define([
                 UI.showNotification('\uD83D\uDD25 ' + label);
             }
         } catch (e) {
-            // localStorage disabled — skip silently.
+            // localStorage disabled â€” skip silently.
         }
     };
 
@@ -3296,7 +3280,7 @@ define([
 
             setTimeout(function() {
                 var msg = 'Research shows that reviewing material a few days later strengthens memory. ' +
-                    'You studied **' + best.topic + '** ' + daysAgo + ' days ago — want a quick refresher?';
+                    'You studied **' + best.topic + '** ' + daysAgo + ' days ago â€” want a quick refresher?';
                 addAssistantMsg(msg);
                 setTimeout(function() {
                     UI.showSuggestions([
@@ -3553,7 +3537,7 @@ define([
             },
             onToken: function(token) {
                 if (!fullText) {
-                    // First token — create the streaming message element.
+                    // First token â€” create the streaming message element.
                     UI.startStreaming();
                 }
                 fullText += token;
@@ -3582,7 +3566,7 @@ define([
                     breakNudgeShown = true;
                     setTimeout(function() {
                         addAssistantMsg(
-                            "You've been studying for a while — nice dedication! " +
+                            "You've been studying for a while â€” nice dedication! " +
                             "Research shows short breaks improve retention. " +
                             "Consider stepping away for 5\u201310 minutes, then come back refreshed. \ud83d\udcaa"
                         );

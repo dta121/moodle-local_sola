@@ -517,7 +517,6 @@ define([
         // Apply drawer display mode styling (drawer stays closed until clicked).
         if (root.dataset.displaymode === 'drawer') {
             root.classList.add('local-ai-course-assistant--drawer-mode');
-            root.classList.add('local-ai-course-assistant--drawer-ready');
             // Sync page push margin on viewport resize (remove on mobile, re-apply on desktop).
             window.addEventListener('resize', function() {
                 if (isOpen()) {
