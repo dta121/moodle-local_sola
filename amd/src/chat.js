@@ -100,6 +100,8 @@ define([
         course: 'From: Course Materials',
         general: 'General Knowledge',
     };
+    /** @type {string} Local intro-dismiss key */
+    const INTRO_DISMISSED_KEY = 'ai_course_assistant_intro_dismissed';
 
     /**
      * Parse SOLA metadata markers from an assistant response.
@@ -366,6 +368,42 @@ define([
         }
         contextDebugState.lastServer = payload;
         refreshContextDebug();
+    };
+
+    /**
+     * Determine whether the first-run intro has already been completed.
+     *
+     * @param {HTMLElement|null=} rootEl
+     * @returns {boolean}
+     */
+    const isIntroDismissed = function(rootEl) {
+        rootEl = rootEl || UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        if (rootEl && rootEl.dataset.introDismissed === '1') {
+            return true;
+        }
+        try {
+            return localStorage.getItem(INTRO_DISMISSED_KEY) === '1';
+        } catch (e) {
+            return false;
+        }
+    };
+
+    /**
+     * Persist intro completion locally and on the server once the user accepts it.
+     *
+     * @param {HTMLElement|null=} rootEl
+     */
+    const markIntroDismissed = function(rootEl) {
+        rootEl = rootEl || UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        if (rootEl) {
+            rootEl.dataset.introDismissed = '1';
+        }
+        try {
+            localStorage.setItem(INTRO_DISMISSED_KEY, '1');
+        } catch (e) { /**/ }
+        Repo.dismissIntro().catch(function() {
+            // Silently fail.
+        });
     };
 
     /**
@@ -920,9 +958,14 @@ define([
             }
         });
         initLanguage();
+        if (root.dataset.introDismissed === '1') {
+            try {
+                localStorage.setItem(INTRO_DISMISSED_KEY, '1');
+            } catch (e) { /**/ }
+        }
 
         // First-ever visit: pulse the toggle to attract attention (don't auto-open).
-        // Subsequent new-course visits: auto-open after 600ms on desktop only.
+        // Subsequent visits stay closed until the user opens the drawer manually.
         // Mobile (≤600px) never auto-opens — full-screen takeover is too aggressive.
         try {
             const introDismissed = localStorage.getItem('ai_course_assistant_intro_dismissed');
@@ -938,7 +981,7 @@ define([
                 localStorage.setItem(visitedKey, '1');
                 if (!isMobile) {
                     // Returning user, new course, desktop — auto-open.
-                    setTimeout(handleToggle, 600);
+                    // Auto-open disabled to avoid a flicker on course entry.
                 }
             }
         } catch (e) {
@@ -3132,12 +3175,14 @@ define([
             UI.setInputEnabled(false);
             return;
         }
-        if (opened && !historyLoaded) {
-            loadHistory();
+        if (opened) {
+            if (!historyLoaded) {
+                loadHistory();
+                updateStreak();
+                checkWelcomeBack();
+                checkSpacedRepetition();
+            }
             checkAndShowIntro();
-            updateStreak();
-            checkWelcomeBack();
-            checkSpacedRepetition();
         }
     };
 
@@ -3145,26 +3190,13 @@ define([
      * Check if user needs to see intro, show if needed.
      */
     const checkAndShowIntro = function() {
-        // Check if intro already dismissed.
-        try {
-            const introDismissed = localStorage.getItem('ai_course_assistant_intro_dismissed');
-            if (introDismissed) {
-                return;
-            }
-
-            // Show intro modal.
-            UI.showIntroModal();
-
-            // Mark as dismissed locally.
-            localStorage.setItem('ai_course_assistant_intro_dismissed', '1');
-
-            // Sync to server.
-            Repo.dismissIntro().catch(function() {
-                // Silently fail.
-            });
-        } catch (e) {
-            // localStorage might be disabled.
+        const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        if (!root || isIntroDismissed(root)) {
+            return;
         }
+        UI.showIntroModal(function() {
+            markIntroDismissed(root);
+        });
     };
 
     /**

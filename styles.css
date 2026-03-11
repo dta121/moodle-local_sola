@@ -1050,6 +1050,23 @@
     line-height: 1;
 }
 
+.local-ai-course-assistant__welcome-disclaimer {
+    width: 100%;
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.local-ai-course-assistant__welcome-disclaimer strong {
+    color: #7c2d12;
+}
+
 .local-ai-course-assistant__welcome-cta {
     width: 100%;
     padding: 12px;
@@ -1241,6 +1258,12 @@
 
     .local-ai-course-assistant__welcome-feature-icon {
         font-size: 13px;
+    }
+
+    .local-ai-course-assistant__welcome-disclaimer {
+        margin: 2px 0 8px;
+        padding: 8px 10px;
+        font-size: 11px;
     }
 
     .local-ai-course-assistant__welcome-cta {

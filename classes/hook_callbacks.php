@@ -283,6 +283,7 @@ class hook_callbacks {
             'welcomemessage'     => get_config('local_ai_course_assistant', 'welcome_message') ?: '',
             'chatgreeting'       => get_config('local_ai_course_assistant', 'chat_greeting') ?: '',
             'coursename'         => $course->fullname,
+            'introdismissed'     => (bool)get_user_preferences('local_ai_course_assistant_intro_dismissed', 0),
             'emailreminders'     => (bool)get_config('local_ai_course_assistant', 'reminders_email_enabled'),
             'completionpct'      => $completionpct,
             'defaultvoice'       => \local_ai_course_assistant\voice_catalog::normalize(

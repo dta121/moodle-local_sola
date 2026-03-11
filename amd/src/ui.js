@@ -1858,8 +1858,10 @@ define([
     /**
      * Show welcome screen on first use.
      * Renders as a full overlay inside the drawer.
+     *
+     * @param {Function=} onComplete Called when the user accepts the intro.
      */
-    const showIntroModal = function() {
+    const showIntroModal = function(onComplete) {
         const avatarUrl = root.dataset.avatarurl || '';
         const firstName = root.dataset.firstname || '';
         const displayName = root.dataset.displayname || 'SOLA';
@@ -1868,6 +1870,10 @@ define([
         const welcomeName = firstName ? ', ' + firstName : '';
         const hasTts = !!(root.dataset.ttsurl);
         const hasPronunciation = !!(root.querySelector('[data-starter="ell-pronunciation"]'));
+        const existing = drawer ? drawer.querySelector('.local-ai-course-assistant__welcome') : null;
+        if (existing) {
+            existing.remove();
+        }
 
         // Build the welcome title and subtitle.
         var welcomeTitle, welcomeSubtitle;
@@ -1919,6 +1925,9 @@ define([
                   '</li>'
                 : '') +
             '</ul>' +
+            '<div class="local-ai-course-assistant__welcome-disclaimer">' +
+            '<strong>AI notice:</strong> SOLA uses AI-generated responses to support learning. It can be wrong, incomplete, or outdated, so students should double-check important information with course materials and their instructor.' +
+            '</div>' +
             '<button class="local-ai-course-assistant__welcome-cta">Let\'s get started \u2192</button>';
 
         // Insert as a flex child immediately after the header so it naturally
@@ -1951,6 +1960,9 @@ define([
             panel.classList.remove('local-ai-course-assistant__welcome--visible');
             if (drawer) {
                 drawer.classList.remove('local-ai-course-assistant__drawer--welcome');
+            }
+            if (typeof onComplete === 'function') {
+                onComplete();
             }
             setTimeout(function() {
                 panel.remove();
