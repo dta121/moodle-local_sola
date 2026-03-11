@@ -479,8 +479,18 @@ class integrity_checker {
             return ['status' => 'warn', 'details' => 'No files were found to lint.'];
         }
 
-        if (!function_exists('exec') || PHP_BINARY === '') {
+        if (!function_exists('exec')) {
             return ['status' => 'warn', 'details' => 'PHP CLI lint is not available on this server.'];
+        }
+
+        $phpbinary = self::resolve_php_lint_binary();
+        if ($phpbinary === '') {
+            $currentbinary = PHP_BINARY !== '' ? basename(PHP_BINARY) : 'unknown';
+            return [
+                'status' => 'warn',
+                'details' => 'PHP CLI lint is not available on this server. The current PHP binary "'
+                    . $currentbinary . '" does not support file linting.',
+            ];
         }
 
         $errors = [];
@@ -489,7 +499,7 @@ class integrity_checker {
             $checked++;
             $output = [];
             $returncode = 0;
-            $command = escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($file) . ' 2>&1';
+            $command = escapeshellarg($phpbinary) . ' -l ' . escapeshellarg($file) . ' 2>&1';
             @exec($command, $output, $returncode);
             if ($returncode !== 0) {
                 $errors[] = basename($file) . ': ' . trim(implode(' ', $output));
@@ -508,8 +518,86 @@ class integrity_checker {
 
         return [
             'status' => 'pass',
-            'details' => 'Checked ' . $checked . ' file(s) with PHP lint.',
+            'details' => 'Checked ' . $checked . ' file(s) with PHP lint via "' . basename($phpbinary) . '".',
         ];
+    }
+
+    /**
+     * Resolve a PHP executable that supports CLI linting.
+     *
+     * @return string
+     */
+    private static function resolve_php_lint_binary(): string {
+        $candidates = [];
+
+        if (PHP_BINARY !== '') {
+            $candidates[] = PHP_BINARY;
+            $bindir = dirname(PHP_BINARY);
+            foreach (self::get_php_cli_candidate_names() as $name) {
+                $candidates[] = $bindir . DIRECTORY_SEPARATOR . $name;
+            }
+        }
+
+        if (defined('PHP_BINDIR') && PHP_BINDIR !== '') {
+            foreach (self::get_php_cli_candidate_names() as $name) {
+                $candidates[] = PHP_BINDIR . DIRECTORY_SEPARATOR . $name;
+            }
+        }
+
+        foreach (self::get_php_cli_candidate_names() as $name) {
+            $candidates[] = $name;
+        }
+
+        $candidates = array_values(array_unique(array_filter(array_map('trim', $candidates))));
+        foreach ($candidates as $candidate) {
+            if (self::binary_supports_php_lint($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Build likely PHP CLI binary names for the current platform/version.
+     *
+     * @return array
+     */
+    private static function get_php_cli_candidate_names(): array {
+        $suffix = DIRECTORY_SEPARATOR === '\\' ? '.exe' : '';
+        $majorminor = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $major = (string)PHP_MAJOR_VERSION;
+
+        return array_values(array_unique([
+            'php' . $suffix,
+            'php-cli' . $suffix,
+            'php' . $majorminor . $suffix,
+            'php' . str_replace('.', '', $majorminor) . $suffix,
+            'php' . $major . $suffix,
+        ]));
+    }
+
+    /**
+     * Determine whether a PHP executable can lint a file via `php -l`.
+     *
+     * @param string $binary
+     * @return bool
+     */
+    private static function binary_supports_php_lint(string $binary): bool {
+        if ($binary === '' || preg_match('/[\r\n]/', $binary)) {
+            return false;
+        }
+
+        $output = [];
+        $returncode = 0;
+        $command = escapeshellarg($binary) . ' -l ' . escapeshellarg(__FILE__) . ' 2>&1';
+        @exec($command, $output, $returncode);
+        if ($returncode !== 0) {
+            return false;
+        }
+
+        $text = strtolower(trim(implode(' ', $output)));
+        return $text === '' || str_contains($text, 'no syntax errors detected');
     }
 
     /**
