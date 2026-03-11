@@ -244,6 +244,10 @@ class hook_callbacks {
         if ($avatarcolor === '' || strcasecmp($avatarcolor, '#4a6cf7') === 0) {
             $avatarcolor = '#173140';
         }
+        $startericoncolor = trim((string)(get_config('local_ai_course_assistant', 'starter_icon_color') ?: ''));
+        if ($startericoncolor === '') {
+            $startericoncolor = '#173140';
+        }
 
         // Render template.
         $templatedata = [
@@ -277,6 +281,7 @@ class hook_callbacks {
             'ttsurl'             => $ttsurl,
             'avatarcolor'        => $avatarcolor,
             'avatarfill'         => get_config('local_ai_course_assistant', 'avatar_fill') ?: '#ffffff',
+            'startericoncolor'   => $startericoncolor,
             'displaymode'        => $displaymode,
             'displayname'        => get_config('local_ai_course_assistant', 'display_name') ?: 'SOLA',
             'shortname_label'    => get_config('local_ai_course_assistant', 'short_name') ?: 'SOLA',

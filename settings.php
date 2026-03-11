@@ -567,6 +567,13 @@ if ($hassiteconfig) {
         '#ffffff'
     ));
 
+    $brandingsettings->add(new admin_setting_configcolourpicker(
+        'local_ai_course_assistant/starter_icon_color',
+        get_string('settings:starter_icon_color', 'local_ai_course_assistant'),
+        get_string('settings:starter_icon_color_desc', 'local_ai_course_assistant'),
+        '#173140'
+    ));
+
     $ADMIN->add($helper::CATEGORY_GENERAL, $brandingsettings);
 
     $faqsettings = $helper::create_page($helper::SECTION_FAQ);

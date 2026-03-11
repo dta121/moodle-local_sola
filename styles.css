@@ -1422,7 +1422,6 @@
 }
 
 .local-ai-course-assistant__message--assistant .local-ai-course-assistant__message-content a,
-.aica-starter-icon,
 .aica-quiz__retake,
 .aica-word--active,
 .aica-settings-panel__lang-opt--active,
@@ -1500,7 +1499,7 @@
     }
 
     .local-ai-course-assistant__starter:hover .aica-starter-icon {
-        color: var(--aica-brand-color);
+        color: var(--aica-starter-icon-color, #173140);
     }
 
     .aica-quiz__retake:hover {
@@ -2645,7 +2644,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #4a6cf7;
+    color: var(--aica-starter-icon-color, #173140);
     flex-shrink: 0;
 }
 
@@ -2656,7 +2655,7 @@
 
 @media (hover: hover) {
     .local-ai-course-assistant__starter:hover .aica-starter-icon {
-        color: #3a5ce4;
+        color: var(--aica-starter-icon-color, #173140);
     }
 }
 
