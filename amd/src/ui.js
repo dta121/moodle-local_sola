@@ -50,6 +50,24 @@ define([
     let langBtn = null;
     /** @type {HTMLElement} */
     let langBanner = null;
+    /** @type {HTMLElement|null} */
+    let llmControls = null;
+    /** @type {HTMLElement|null} */
+    let llmProviderWrap = null;
+    /** @type {HTMLElement|null} */
+    let llmModelWrap = null;
+    /** @type {HTMLSelectElement|null} */
+    let llmProviderSelect = null;
+    /** @type {HTMLSelectElement|null} */
+    let llmModelSelect = null;
+    /** @type {{enabled:boolean,providers:Array,currentProvider:string,currentModel:string,onChange:Function|null}} */
+    let composerLlmState = {
+        enabled: false,
+        providers: [],
+        currentProvider: '',
+        currentModel: '',
+        onChange: null,
+    };
 
     /** localStorage key for persisting expanded state */
     const EXPAND_KEY = 'aica_expand_state';
@@ -498,6 +516,22 @@ define([
         micBtn = root.querySelector('.local-ai-course-assistant__btn-mic');
         langBtn = root.querySelector('.local-ai-course-assistant__btn-lang');
         langBanner = root.querySelector('.local-ai-course-assistant__lang-banner');
+        llmControls = root.querySelector('.local-ai-course-assistant__composer-left');
+        llmProviderSelect = root.querySelector('.local-ai-course-assistant__composer-select--provider');
+        llmModelSelect = root.querySelector('.local-ai-course-assistant__composer-select--model');
+        llmProviderWrap = llmProviderSelect ? llmProviderSelect.closest('.local-ai-course-assistant__composer-select-wrap') : null;
+        llmModelWrap = llmModelSelect ? llmModelSelect.closest('.local-ai-course-assistant__composer-select-wrap') : null;
+        if (llmProviderSelect) {
+            llmProviderSelect.addEventListener('change', function() {
+                renderComposerModelOptions(llmProviderSelect.value, true);
+            });
+        }
+        if (llmModelSelect) {
+            llmModelSelect.addEventListener('change', function() {
+                composerLlmState.currentModel = llmModelSelect.value;
+                emitComposerLlmChange();
+            });
+        }
         // Apply admin-configured avatar colors as CSS variables and inline styles.
         const avatarColor = root.dataset.avatarColor;
         if (avatarColor) {
@@ -1243,6 +1277,123 @@ define([
     };
 
     /**
+     * Emit a provider/model selection change from the composer.
+     */
+    const emitComposerLlmChange = function() {
+        if (typeof composerLlmState.onChange === 'function' &&
+                composerLlmState.currentProvider && composerLlmState.currentModel) {
+            composerLlmState.onChange(composerLlmState.currentProvider, composerLlmState.currentModel);
+        }
+    };
+
+    /**
+     * Render model options for the currently selected provider.
+     *
+     * @param {string} providerId
+     * @param {boolean} notify
+     */
+    const renderComposerModelOptions = function(providerId, notify) {
+        if (!llmModelSelect) {
+            return;
+        }
+        llmModelSelect.innerHTML = '';
+        const providerConfig = composerLlmState.providers.find(function(item) {
+            return item.id === providerId;
+        }) || composerLlmState.providers[0];
+
+        if (!providerConfig || !Array.isArray(providerConfig.models) || !providerConfig.models.length) {
+            composerLlmState.currentProvider = '';
+            composerLlmState.currentModel = '';
+            if (llmControls) {
+                llmControls.hidden = true;
+            }
+            return;
+        }
+
+        composerLlmState.currentProvider = providerConfig.id;
+        if (llmProviderSelect) {
+            llmProviderSelect.value = providerConfig.id;
+        }
+
+        let selectedModel = composerLlmState.currentModel;
+        if (!providerConfig.models.some(function(model) { return model.id === selectedModel; })) {
+            selectedModel = providerConfig.models[0].id;
+        }
+
+        providerConfig.models.forEach(function(model) {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.label || model.id;
+            if (model.id === selectedModel) {
+                option.selected = true;
+            }
+            llmModelSelect.appendChild(option);
+        });
+
+        composerLlmState.currentModel = selectedModel;
+        llmModelSelect.value = selectedModel;
+
+        if (notify) {
+            emitComposerLlmChange();
+        }
+    };
+
+    /**
+     * Populate the Codex-style LLM and model controls in the composer.
+     *
+     * @param {Object} config
+     * @param {boolean} config.enabled
+     * @param {Array} config.providers
+     * @param {string} config.currentProvider
+     * @param {string} config.currentModel
+     * @param {Function=} config.onChange
+     */
+    const setComposerLlmOptions = function(config) {
+        if (!llmControls || !llmProviderSelect || !llmModelSelect) {
+            return;
+        }
+
+        const providers = Array.isArray(config && config.providers) ? config.providers.filter(function(provider) {
+            return provider && provider.id && Array.isArray(provider.models) && provider.models.length;
+        }) : [];
+        const enabled = !!(config && config.enabled && providers.length);
+
+        composerLlmState = {
+            enabled: enabled,
+            providers: providers,
+            currentProvider: enabled ? (config.currentProvider || providers[0].id) : '',
+            currentModel: enabled ? (config.currentModel || '') : '',
+            onChange: enabled && typeof config.onChange === 'function' ? config.onChange : null,
+        };
+
+        llmControls.hidden = !enabled;
+        if (llmProviderWrap) {
+            llmProviderWrap.hidden = !enabled;
+        }
+        if (llmModelWrap) {
+            llmModelWrap.hidden = !enabled;
+        }
+        llmProviderSelect.innerHTML = '';
+        llmModelSelect.innerHTML = '';
+
+        if (!enabled) {
+            return;
+        }
+
+        providers.forEach(function(provider) {
+            const option = document.createElement('option');
+            option.value = provider.id;
+            option.textContent = provider.label || provider.id;
+            if (provider.id === composerLlmState.currentProvider) {
+                option.selected = true;
+            }
+            llmProviderSelect.appendChild(option);
+        });
+
+        renderComposerModelOptions(composerLlmState.currentProvider, false);
+    };
+
+    /**
      * Add a message bubble to the messages area.
      *
      * @param {string}        role     'user' or 'assistant'
@@ -1790,6 +1941,8 @@ define([
             expandBtn: expandBtn,
             micBtn: micBtn,
             langBtn: langBtn,
+            llmProviderSelect: llmProviderSelect,
+            llmModelSelect: llmModelSelect,
             modeButtons: root.querySelectorAll('.local-ai-course-assistant__mode-btn'),
             voiceStartBtn: root.querySelector('.aica-voice-panel__start'),
             historyRefreshBtn: root.querySelector('.aica-history-panel__refresh'),
@@ -3722,6 +3875,7 @@ define([
         showLangPicker: showLangPicker,
         showSettingsPanel: showSettingsPanel,
         showFeedbackPanel: showFeedbackPanel,
+        setComposerLlmOptions: setComposerLlmOptions,
         startWordHighlight: startWordHighlight,
         highlightWordAt: highlightWordAt,
         stopWordHighlight: stopWordHighlight,

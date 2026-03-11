@@ -612,9 +612,59 @@ define([
         } catch (e) {
             options = {};
         }
+
+        const normalizeModelOption = function(model) {
+            if (typeof model === 'string') {
+                return {
+                    id: model,
+                    label: model,
+                    status: 'setup',
+                };
+            }
+            if (!model || typeof model !== 'object') {
+                return null;
+            }
+            const id = model.id || model.value || model.name || model.label || '';
+            if (!id) {
+                return null;
+            }
+            return {
+                id: id,
+                label: model.label || model.name || id,
+                status: (model.status || 'setup').toLowerCase(),
+            };
+        };
+
+        /**
+         * Return only the models that should be shown in the composer dropdown.
+         *
+         * @param {Array} models
+         * @returns {Array<{id:string,label:string,status:string}>}
+         */
+        const getVisibleModels = function(models) {
+            return (Array.isArray(models) ? models : []).map(normalizeModelOption).filter(function(model) {
+                return !!(model && model.id && (model.status === 'active' || model.status === 'setup'));
+            });
+        };
+
+        const providers = (Array.isArray(options && options.providers) ? options.providers : []).map(function(provider) {
+            if (!provider || !provider.id) {
+                return null;
+            }
+            const models = getVisibleModels(provider.models);
+            if (!models.length) {
+                return null;
+            }
+            return {
+                id: provider.id,
+                label: provider.label || provider.id,
+                models: models,
+            };
+        }).filter(Boolean);
+
         return {
             enabled: !!(options && options.enabled),
-            providers: Array.isArray(options && options.providers) ? options.providers : [],
+            providers: providers,
             defaultProvider: (options && options.defaultProvider) || '',
             defaultModel: (options && options.defaultModel) || '',
         };
@@ -682,13 +732,15 @@ define([
         }
 
         let model = storedModel;
-        if (!model || !Array.isArray(providerConfig.models) || providerConfig.models.indexOf(model) === -1) {
+        const providerModelIds = Array.isArray(providerConfig.models)
+            ? providerConfig.models.map(function(item) { return item.id; })
+            : [];
+        if (!model || providerModelIds.indexOf(model) === -1) {
             if (providerConfig.id === options.defaultProvider &&
-                    Array.isArray(providerConfig.models) &&
-                    providerConfig.models.indexOf(options.defaultModel) !== -1) {
+                    providerModelIds.indexOf(options.defaultModel) !== -1) {
                 model = options.defaultModel;
             } else {
-                model = (providerConfig.models && providerConfig.models[0]) || '';
+                model = (providerConfig.models && providerConfig.models[0] && providerConfig.models[0].id) || '';
             }
         }
 
@@ -714,6 +766,24 @@ define([
     const getRealtimeVoicePreference = function(root, fallbackVoice) {
         const preferred = getStoredVoicePreference() || fallbackVoice || getDefaultVoice(root);
         return getRealtimeCompatibleVoice(preferred);
+    };
+
+    /**
+     * Sync the Codex-style composer LLM controls with the active frontend options.
+     *
+     * @param {HTMLElement} root
+     */
+    const syncComposerLlmControls = function(root) {
+        const llmSelection = getResolvedLlmSelection(root);
+        UI.setComposerLlmOptions({
+            enabled: llmSelection.enabled,
+            providers: llmSelection.options.providers || [],
+            currentProvider: llmSelection.provider,
+            currentModel: llmSelection.model,
+            onChange: function(provider, model) {
+                saveLlmSelection(provider, model);
+            },
+        });
     };
 
     /**
@@ -1056,6 +1126,7 @@ define([
         UI.initUI(root);
         initContextDebug(root);
         bindEvents();
+        syncComposerLlmControls(root);
         initSpeech();
         syncVoicePanel();
         UI.setModeButtonsEnabled(!quizLocked);
@@ -1578,7 +1649,6 @@ define([
         let quizHistory = [];
         try { studySessions = JSON.parse(localStorage.getItem('aica_study_sessions_' + courseId) || '[]'); } catch (e) { /**/ }
         try { quizHistory = JSON.parse(localStorage.getItem('aica_quiz_history_' + courseId) || '[]'); } catch (e) { /**/ }
-        const llmSelection = getResolvedLlmSelection(root);
 
         // Fetch reminder preferences, then show panel.
         var reminderEnabled = false;
@@ -1598,10 +1668,6 @@ define([
                     emailRemindersEnabled: root.dataset.emailreminders === '1',
                     reminderEnabled: reminderEnabled,
                     reminderFrequency: reminderFrequency,
-                    modelSwitchEnabled: llmSelection.enabled,
-                    providerOptions: llmSelection.options.providers || [],
-                    currentProvider: llmSelection.provider,
-                    currentModel: llmSelection.model,
                 },
                 {
                     onLangSelect: function(code, name) {
@@ -1622,9 +1688,6 @@ define([
                     },
                     onVoiceSelect: function(voice) {
                         localStorage.setItem('aica_tts_voice', voice);
-                    },
-                    onLlmSelect: function(provider, model) {
-                        saveLlmSelection(provider, model);
                     },
                     onClearProgress: function() {
                         try {
