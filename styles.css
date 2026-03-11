@@ -759,6 +759,7 @@
 
 .local-ai-course-assistant__composer-card {
     width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -776,7 +777,9 @@
 }
 
 .local-ai-course-assistant__input {
+    flex: 1 1 auto;
     width: 100%;
+    min-width: 0;
     border: none;
     padding: 10px 12px 6px;
     font-size: 14px;
@@ -799,7 +802,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
+    min-width: 0;
     padding: 0 4px 2px;
 }
 
@@ -811,6 +815,16 @@
     min-width: 0;
 }
 
+.local-ai-course-assistant__composer-left {
+    flex: 0 1 auto;
+    overflow: hidden;
+}
+
+.local-ai-course-assistant__composer-right {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
 .local-ai-course-assistant__composer-left[hidden] {
     display: none !important;
 }
@@ -819,13 +833,16 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 120px;
     height: 32px;
     padding: 0 10px;
     border: 1px solid #e5e7eb;
     border-radius: 999px;
     background: #fff;
     color: #475569;
+    overflow: hidden;
 }
 
 .local-ai-course-assistant__composer-select-wrap[hidden] {
@@ -844,8 +861,12 @@
     position: relative;
     display: inline-flex;
     align-items: center;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     padding-right: 14px;
+    overflow: hidden;
 }
 
 .local-ai-course-assistant__composer-select-shell svg {
@@ -857,17 +878,21 @@
 
 .local-ai-course-assistant__composer-select {
     appearance: none;
+    display: block;
+    width: 100%;
     border: none;
     background: transparent;
     min-width: 0;
-    max-width: 132px;
+    max-width: 100%;
     padding: 0 14px 0 0;
     font-size: 12px;
     font-weight: 600;
     color: #334155;
     cursor: pointer;
     outline: none;
+    overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .local-ai-course-assistant__composer-select:focus {
