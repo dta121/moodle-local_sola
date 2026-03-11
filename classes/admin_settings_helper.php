@@ -26,6 +26,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class admin_settings_helper {
+    public const CATEGORY_ROOT = 'local_ai_course_assistant_admin';
+    public const CATEGORY_GENERAL = 'local_ai_course_assistant_admin_general';
+    public const CATEGORY_SEARCH_AI = 'local_ai_course_assistant_admin_search_ai';
+    public const CATEGORY_MODERATION = 'local_ai_course_assistant_admin_moderation';
+    public const CATEGORY_MAINTENANCE = 'local_ai_course_assistant_admin_maintenance';
+
     public const SECTION_MAIN = 'local_ai_course_assistant';
     public const SECTION_RAG = 'local_ai_course_assistant_rag';
     public const SECTION_TOKEN_ANALYTICS = 'local_ai_course_assistant_token_analytics';
@@ -40,6 +46,46 @@ class admin_settings_helper {
     public const SECTION_DEBUGGING = 'local_ai_course_assistant_debugging';
 
     /**
+     * Return top-level SOLA submenu categories in display order.
+     *
+     * @return array
+     */
+    public static function get_categories(): array {
+        return [
+            self::CATEGORY_GENERAL => get_string('settingsgroup:general', 'local_ai_course_assistant'),
+            self::CATEGORY_SEARCH_AI => get_string('settingsgroup:search_ai', 'local_ai_course_assistant'),
+            self::CATEGORY_MODERATION => get_string('settingsgroup:moderation', 'local_ai_course_assistant'),
+            self::CATEGORY_MAINTENANCE => get_string('settingsgroup:maintenance', 'local_ai_course_assistant'),
+        ];
+    }
+
+    /**
+     * Register the root SOLA admin category.
+     *
+     * @param \admin_root $admin
+     * @return void
+     */
+    public static function add_root_category(\admin_root $admin): void {
+        $admin->add('localplugins', new \admin_category(
+            self::CATEGORY_ROOT,
+            get_string('pluginname', 'local_ai_course_assistant'),
+            false
+        ));
+    }
+
+    /**
+     * Register the SOLA submenu group categories.
+     *
+     * @param \admin_root $admin
+     * @return void
+     */
+    public static function add_group_categories(\admin_root $admin): void {
+        foreach (self::get_categories() as $categoryid => $label) {
+            $admin->add(self::CATEGORY_ROOT, new \admin_category($categoryid, $label, false));
+        }
+    }
+
+    /**
      * Return section metadata for the tabbed settings pages.
      *
      * @return array
@@ -47,38 +93,8 @@ class admin_settings_helper {
     public static function get_sections(): array {
         return [
             self::SECTION_MAIN => [
-                'label' => 'AI Provider & Conversation',
-                'visiblename' => get_string('pluginname', 'local_ai_course_assistant'),
-                'hidden' => false,
-            ],
-            self::SECTION_RAG => [
-                'label' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
-                'hidden' => false,
-            ],
-            self::SECTION_TOKEN_ANALYTICS => [
-                'label' => 'Token Analytics',
-                'visiblename' => 'Token Analytics',
-                'hidden' => false,
-            ],
-            self::SECTION_UPDATES => [
-                'label' => get_string('settings:updates_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:updates_heading', 'local_ai_course_assistant') . ' Settings',
-                'hidden' => false,
-            ],
-            self::SECTION_INTEGRITY => [
-                'label' => get_string('settings:integrity_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:integrity_heading', 'local_ai_course_assistant') . ' Settings',
-                'hidden' => false,
-            ],
-            self::SECTION_OFFTOPIC => [
-                'label' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
-                'hidden' => false,
-            ],
-            self::SECTION_WELLBEING => [
-                'label' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
+                'label' => get_string('settings:mainpage', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:mainpage', 'local_ai_course_assistant'),
                 'hidden' => false,
             ],
             self::SECTION_STUDYPLAN => [
@@ -96,14 +112,44 @@ class admin_settings_helper {
                 'visiblename' => get_string('settings:faq_heading', 'local_ai_course_assistant'),
                 'hidden' => false,
             ],
+            self::SECTION_DEBUGGING => [
+                'label' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
+                'hidden' => false,
+            ],
+            self::SECTION_RAG => [
+                'label' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:rag_heading', 'local_ai_course_assistant'),
+                'hidden' => false,
+            ],
+            self::SECTION_TOKEN_ANALYTICS => [
+                'label' => 'Token Analytics',
+                'visiblename' => 'Token Analytics',
+                'hidden' => false,
+            ],
             self::SECTION_VOICE => [
                 'label' => get_string('settings:realtime_heading', 'local_ai_course_assistant'),
                 'visiblename' => get_string('settings:realtime_heading', 'local_ai_course_assistant'),
                 'hidden' => false,
             ],
-            self::SECTION_DEBUGGING => [
-                'label' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
-                'visiblename' => get_string('settings:debug_heading', 'local_ai_course_assistant'),
+            self::SECTION_OFFTOPIC => [
+                'label' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:offtopic_heading', 'local_ai_course_assistant'),
+                'hidden' => false,
+            ],
+            self::SECTION_WELLBEING => [
+                'label' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:wellbeing_heading', 'local_ai_course_assistant'),
+                'hidden' => false,
+            ],
+            self::SECTION_UPDATES => [
+                'label' => get_string('settings:updates_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:updates_heading', 'local_ai_course_assistant') . ' Settings',
+                'hidden' => false,
+            ],
+            self::SECTION_INTEGRITY => [
+                'label' => get_string('settings:integrity_heading', 'local_ai_course_assistant'),
+                'visiblename' => get_string('settings:integrity_heading', 'local_ai_course_assistant') . ' Settings',
                 'hidden' => false,
             ],
         ];

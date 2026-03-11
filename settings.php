@@ -27,6 +27,8 @@ defined('MOODLE_INTERNAL') || die();
 if ($hassiteconfig) {
     $helper = '\\local_ai_course_assistant\\admin_settings_helper';
 
+    $helper::add_root_category($ADMIN);
+
     $startersurl = new moodle_url('/local/ai_course_assistant/starter_settings.php');
     $ragadminurl = new moodle_url('/local/ai_course_assistant/rag_admin.php');
     $tokenanalyticsurl = new moodle_url('/local/ai_course_assistant/token_analytics.php');
@@ -183,18 +185,8 @@ if ($hassiteconfig) {
         0
     ));
 
-    $settings->add(new admin_setting_description(
-        'local_ai_course_assistant/starters_link',
-        get_string('starters:admin_title', 'local_ai_course_assistant'),
-        get_string('starters:admin_desc', 'local_ai_course_assistant') . '<br><br>' .
-            html_writer::link(
-                $startersurl,
-                get_string('starters:admin_title', 'local_ai_course_assistant'),
-                ['class' => 'btn btn-secondary btn-sm']
-            )
-    ));
-
-    $ADMIN->add('localplugins', $settings);
+    $ADMIN->add($helper::CATEGORY_ROOT, $settings);
+    $helper::add_group_categories($ADMIN);
 
     $ragsettings = $helper::create_page($helper::SECTION_RAG);
     $helper::add_page_chrome($ragsettings, $helper::SECTION_RAG);
@@ -275,7 +267,7 @@ if ($hassiteconfig) {
         )
     ));
 
-    $ADMIN->add('localplugins', $ragsettings);
+    $ADMIN->add($helper::CATEGORY_SEARCH_AI, $ragsettings);
 
     $tokenanalyticssettings = $helper::create_page($helper::SECTION_TOKEN_ANALYTICS);
     $helper::add_page_chrome($tokenanalyticssettings, $helper::SECTION_TOKEN_ANALYTICS, false);
@@ -296,7 +288,7 @@ if ($hassiteconfig) {
         )
     ));
 
-    $ADMIN->add('localplugins', $tokenanalyticssettings);
+    $ADMIN->add($helper::CATEGORY_SEARCH_AI, $tokenanalyticssettings);
 
     $updatesettings = $helper::create_page($helper::SECTION_UPDATES);
     $helper::add_page_chrome($updatesettings, $helper::SECTION_UPDATES);
@@ -324,7 +316,7 @@ if ($hassiteconfig) {
         )
     ));
 
-    $ADMIN->add('localplugins', $updatesettings);
+    $ADMIN->add($helper::CATEGORY_MAINTENANCE, $updatesettings);
 
     $integritysettings = $helper::create_page($helper::SECTION_INTEGRITY);
     $helper::add_page_chrome($integritysettings, $helper::SECTION_INTEGRITY);
@@ -360,7 +352,7 @@ if ($hassiteconfig) {
         )
     ));
 
-    $ADMIN->add('localplugins', $integritysettings);
+    $ADMIN->add($helper::CATEGORY_MODERATION, $integritysettings);
 
     $offtopicsettings = $helper::create_page($helper::SECTION_OFFTOPIC);
     $helper::add_page_chrome($offtopicsettings, $helper::SECTION_OFFTOPIC);
@@ -402,7 +394,7 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    $ADMIN->add('localplugins', $offtopicsettings);
+    $ADMIN->add($helper::CATEGORY_MODERATION, $offtopicsettings);
 
     $wellbeingsettings = $helper::create_page($helper::SECTION_WELLBEING);
     $helper::add_page_chrome($wellbeingsettings, $helper::SECTION_WELLBEING);
@@ -420,7 +412,7 @@ if ($hassiteconfig) {
         1
     ));
 
-    $ADMIN->add('localplugins', $wellbeingsettings);
+    $ADMIN->add($helper::CATEGORY_MODERATION, $wellbeingsettings);
 
     $studyplansettings = $helper::create_page($helper::SECTION_STUDYPLAN);
     $helper::add_page_chrome($studyplansettings, $helper::SECTION_STUDYPLAN);
@@ -506,7 +498,7 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    $ADMIN->add('localplugins', $studyplansettings);
+    $ADMIN->add($helper::CATEGORY_GENERAL, $studyplansettings);
 
     $brandingsettings = $helper::create_page($helper::SECTION_BRANDING);
     $helper::add_page_chrome($brandingsettings, $helper::SECTION_BRANDING);
@@ -575,7 +567,7 @@ if ($hassiteconfig) {
         '#ffffff'
     ));
 
-    $ADMIN->add('localplugins', $brandingsettings);
+    $ADMIN->add($helper::CATEGORY_GENERAL, $brandingsettings);
 
     $faqsettings = $helper::create_page($helper::SECTION_FAQ);
     $helper::add_page_chrome($faqsettings, $helper::SECTION_FAQ);
@@ -621,7 +613,7 @@ if ($hassiteconfig) {
         ''
     ));
 
-    $ADMIN->add('localplugins', $faqsettings);
+    $ADMIN->add($helper::CATEGORY_GENERAL, $faqsettings);
 
     $voicesettings = $helper::create_page($helper::SECTION_VOICE);
     $helper::add_page_chrome($voicesettings, $helper::SECTION_VOICE);
@@ -654,7 +646,7 @@ if ($hassiteconfig) {
         $realtimevoices
     ));
 
-    $ADMIN->add('localplugins', $voicesettings);
+    $ADMIN->add($helper::CATEGORY_SEARCH_AI, $voicesettings);
 
     $debuggingsettings = $helper::create_page($helper::SECTION_DEBUGGING);
     $helper::add_page_chrome($debuggingsettings, $helper::SECTION_DEBUGGING);
@@ -672,37 +664,37 @@ if ($hassiteconfig) {
         0
     ));
 
-    $ADMIN->add('localplugins', $debuggingsettings);
+    $ADMIN->add($helper::CATEGORY_GENERAL, $debuggingsettings);
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add($helper::CATEGORY_SEARCH_AI, new admin_externalpage(
         'local_ai_course_assistant_starters',
         get_string('starters:admin_title', 'local_ai_course_assistant'),
         $startersurl,
         'moodle/site:config'
     ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add($helper::CATEGORY_SEARCH_AI, new admin_externalpage(
         'local_ai_course_assistant_ragadmin',
         get_string('ragadmin:title', 'local_ai_course_assistant'),
         $ragadminurl,
         'moodle/site:config'
     ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add($helper::CATEGORY_MAINTENANCE, new admin_externalpage(
         'local_ai_course_assistant_updateadmin',
         get_string('updates:title', 'local_ai_course_assistant'),
         $updateadminurl,
         'moodle/site:config'
     ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add($helper::CATEGORY_MODERATION, new admin_externalpage(
         'local_ai_course_assistant_integrityadmin',
         get_string('integrity:title', 'local_ai_course_assistant'),
         $integrityadminurl,
         'moodle/site:config'
     ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add($helper::CATEGORY_MAINTENANCE, new admin_externalpage(
         'local_ai_course_assistant_whatsapptest',
         get_string('whatsapptest:title', 'local_ai_course_assistant'),
         $whatsapptesturl,
