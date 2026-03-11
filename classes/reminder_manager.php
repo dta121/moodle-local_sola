@@ -324,6 +324,10 @@ class reminder_manager {
             ];
         }
 
+        if (self::detect_whatsapp_provider($config['apiurl']) === 'twilio') {
+            return self::send_twilio_whatsapp_message($config, trim($destination), $body);
+        }
+
         $payload = json_encode([
             'to' => trim($destination),
             'from' => $config['fromnumber'],
@@ -372,6 +376,111 @@ class reminder_manager {
             'error' => $error,
             'missing' => [],
         ];
+    }
+
+    /**
+     * Detect the configured WhatsApp provider from the endpoint URL.
+     *
+     * @param string $apiurl
+     * @return string
+     */
+    private static function detect_whatsapp_provider(string $apiurl): string {
+        $host = strtolower((string)parse_url($apiurl, PHP_URL_HOST));
+        if ($host !== '' && str_contains($host, 'twilio.com')) {
+            return 'twilio';
+        }
+        return 'generic';
+    }
+
+    /**
+     * Send a WhatsApp message via Twilio's Messages API.
+     *
+     * @param array $config
+     * @param string $destination
+     * @param string $body
+     * @return array
+     */
+    private static function send_twilio_whatsapp_message(array $config, string $destination, string $body): array {
+        $accountsid = self::extract_twilio_account_sid($config['apiurl']);
+        if ($accountsid === '') {
+            return [
+                'success' => false,
+                'httpcode' => 0,
+                'response' => '',
+                'error' => 'Twilio URLs must include /Accounts/{AccountSid}/Messages.json.',
+                'missing' => [],
+            ];
+        }
+
+        $payload = http_build_query([
+            'To' => self::normalise_twilio_whatsapp_address($destination),
+            'From' => self::normalise_twilio_whatsapp_address($config['fromnumber']),
+            'Body' => $body,
+        ], '', '&');
+
+        $curl = new \curl();
+        $curl->setopt([
+            'CURLOPT_HTTPHEADER' => [
+                'Content-Type: application/x-www-form-urlencoded',
+            ],
+            'CURLOPT_USERPWD' => $accountsid . ':' . $config['apitoken'],
+            'CURLOPT_RETURNTRANSFER' => true,
+            'CURLOPT_TIMEOUT' => 30,
+        ]);
+
+        $response = $curl->post($config['apiurl'], $payload);
+        $info = (array)$curl->get_info();
+        $httpcode = (int)($info['http_code'] ?? 0);
+        $errno = (int)$curl->get_errno();
+        $curlerror = trim((string)($curl->error ?? ''));
+        $responsetext = is_string($response) ? $response : '';
+        $success = ($errno === 0 && $httpcode >= 200 && $httpcode < 300);
+        $error = $curlerror;
+        if (!$success && $error === '') {
+            if ($httpcode > 0) {
+                $error = 'HTTP ' . $httpcode;
+            } else {
+                $error = 'No response received from Twilio.';
+            }
+        }
+
+        return [
+            'success' => $success,
+            'httpcode' => $httpcode,
+            'response' => $responsetext,
+            'error' => $error,
+            'missing' => [],
+        ];
+    }
+
+    /**
+     * Extract the Twilio Account SID from a configured Messages API URL.
+     *
+     * @param string $apiurl
+     * @return string
+     */
+    private static function extract_twilio_account_sid(string $apiurl): string {
+        if (preg_match('~/Accounts/([^/]+)/Messages(?:\.json)?(?:[/?]|$)~i', $apiurl, $matches)) {
+            return trim((string)$matches[1]);
+        }
+        return '';
+    }
+
+    /**
+     * Normalise a WhatsApp address for Twilio.
+     *
+     * @param string $value
+     * @return string
+     */
+    private static function normalise_twilio_whatsapp_address(string $value): string {
+        $value = trim($value);
+        if ($value === '') {
+            return $value;
+        }
+        if (preg_match('/^whatsapp:/i', $value)) {
+            $value = preg_replace('/^whatsapp:/i', '', $value);
+        }
+        return 'whatsapp:' . $value;
     }
 
     /**
