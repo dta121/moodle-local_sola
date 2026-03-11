@@ -353,7 +353,10 @@
                     <p class="aica-mode-card__status">{{#str}}chat:voice_ready, local_ai_course_assistant{{/str}}</p>
                 </div>
                 <div class="aica-mode-card__actions">
-                    <button type="button" class="aica-mode-card__primary aica-voice-panel__start">
+                    <button type="button"
+                            class="aica-mode-card__primary aica-voice-panel__start"
+                            data-start-label="{{#str}}chat:voice_start, local_ai_course_assistant{{/str}}"
+                            data-stop-label="{{#str}}chat:voice_end, local_ai_course_assistant{{/str}}">
                         {{#str}}chat:voice_start, local_ai_course_assistant{{/str}}
                     </button>
                 </div>

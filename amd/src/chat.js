@@ -86,6 +86,10 @@ define([
     let conversationHistory = [];
     /** @type {boolean} Whether a history refresh request is in flight */
     let historyRefreshPending = false;
+    /** @type {boolean} Whether a voice session is currently active or starting */
+    let voiceSessionActive = false;
+    /** @type {number} Monotonic token used to ignore stale async voice startup work */
+    let voiceSessionRequestId = 0;
     /** @type {RegExp} SOLA follow-up marker parser */
     const NEXT_BLOCK_RE = /\n*\[SOLA_NEXT\]([\s\S]*?)\[\/SOLA_NEXT\]/;
     /** @type {RegExp} Source attribution tag parser */
@@ -648,6 +652,36 @@ define([
         return isVoiceFeatureEnabled(root) && hasVoiceInputEnvironment() && supportsLegacyVoiceFlow();
     };
 
+    const hasActiveVoiceSession = function() {
+        return voiceSessionActive || Voice.isConnected() || Realtime.isConnected();
+    };
+
+    const beginVoiceSession = function() {
+        voiceSessionActive = true;
+        voiceSessionRequestId += 1;
+        return voiceSessionRequestId;
+    };
+
+    const clearVoiceSession = function() {
+        voiceSessionActive = false;
+        voiceSessionRequestId += 1;
+    };
+
+    const isCurrentVoiceSessionRequest = function(requestId) {
+        return voiceSessionActive && requestId === voiceSessionRequestId;
+    };
+
+    const getVoicePanelButtonLabel = function(active) {
+        const btn = UI.getElements().voiceStartBtn;
+        if (!btn) {
+            return active ? 'End voice session' : 'Start voice chat';
+        }
+        if (active) {
+            return btn.dataset.stopLabel || 'End voice session';
+        }
+        return btn.dataset.startLabel || btn.textContent.trim() || 'Start voice chat';
+    };
+
     const isVoiceChatAvailable = function() {
         const root = UI.getElements().root || document.getElementById('local-ai-course-assistant');
         return canUseRealtimeVoiceChat(root) || canUseLegacyVoiceChat(root);
@@ -662,11 +696,18 @@ define([
             return;
         }
         const available = isVoiceChatAvailable();
-        const contextText = currentPageTitle
-            ? 'Start a voice conversation about "' + currentPageTitle + '" or another course topic. Your transcript will still show up in chat.'
-            : 'Start a voice conversation about this page or another course topic. Your transcript will still show up in chat.';
+        const sessionActive = hasActiveVoiceSession();
+        const contextText = sessionActive
+            ? (currentPageTitle
+                ? 'Voice chat is open for "' + currentPageTitle + '". Keep speaking, type a follow-up, or end the session when you are done.'
+                : 'Voice chat is open for this page or another course topic. Keep speaking, type a follow-up, or end the session when you are done.')
+            : (currentPageTitle
+                ? 'Start a voice conversation about "' + currentPageTitle + '" or another course topic. Your transcript will still show up in chat.'
+                : 'Start a voice conversation about this page or another course topic. Your transcript will still show up in chat.');
         let status = 'Ready when you are.';
-        if (Voice.isConnected() || Realtime.isConnected()) {
+        if (sessionActive && !Voice.isConnected() && !Realtime.isConnected()) {
+            status = 'Voice chat is starting. You can end the session at any time.';
+        } else if (Voice.isConnected() || Realtime.isConnected()) {
             status = 'Voice chat is live. Speak or type to continue.';
         } else if (!isVoiceFeatureEnabled(root)) {
             status = 'Voice chat is not enabled for this course yet.';
@@ -680,8 +721,20 @@ define([
         UI.configureVoicePanel({
             text: contextText,
             status: status,
-            disabled: !available,
+            buttonText: getVoicePanelButtonLabel(sessionActive),
+            disabled: sessionActive ? false : !available,
         });
+    };
+
+    const stopActiveVoiceSession = function() {
+        clearVoiceSession();
+        if (Voice.isConnected()) {
+            Voice.disconnect();
+        }
+        if (Realtime.isConnected()) {
+            Realtime.disconnect();
+        }
+        teardownVoiceSessionUi();
     };
 
     /**
@@ -762,6 +815,7 @@ define([
         }
 
         if (normalized !== 'voice') {
+            clearVoiceSession();
             if (Voice.isConnected()) {
                 Voice.disconnect();
             }
@@ -1038,6 +1092,10 @@ define([
         if (els.voiceStartBtn) {
             els.voiceStartBtn.addEventListener('click', function() {
                 setBottomMode('voice', {force: true});
+                if (hasActiveVoiceSession()) {
+                    stopActiveVoiceSession();
+                    return;
+                }
                 handlePracticeSpeaking();
             });
         }
@@ -1348,6 +1406,7 @@ define([
         }
 
         // End any active voice/pronunciation session.
+        clearVoiceSession();
         if (Voice.isConnected()) {
             Voice.disconnect();
         }
@@ -1513,6 +1572,7 @@ define([
      * Reset overlay state once a voice session ends or fails.
      */
     const teardownVoiceSessionUi = function() {
+        clearVoiceSession();
         UI.clearSuggestions();
         UI.hideVoiceOverlay();
         syncVoicePanel();
@@ -1670,11 +1730,11 @@ define([
         }
 
         const endSession = function() {
-            Realtime.disconnect();
-            teardownVoiceSessionUi();
+            stopActiveVoiceSession();
         };
 
         const overlay = UI.showVoiceOverlay(avatarUrl, endSession, config.overlayInstruction || '');
+        const sessionRequestId = beginVoiceSession();
         UI.setVoiceState('idle');
         syncVoicePanel();
 
@@ -1695,6 +1755,12 @@ define([
                 Repo.getRealtimeToken(courseId, getRealtimeVoiceRequestContext(root)),
                 micPromise,
             ]).then(function(results) {
+                if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                    if (acquiredMicStream) {
+                        acquiredMicStream.getTracks().forEach(function(track) { track.stop(); });
+                    }
+                    return;
+                }
                 const result = results[0] || {};
                 const micStream = results[1];
                 const token = result.token;
@@ -1712,9 +1778,15 @@ define([
                     voice,
                     {
                         onTranscript: function(role, text) {
+                            if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                                return;
+                            }
                             UI.appendVoiceTranscript(role, text);
                         },
                         onStateChange: function(state) {
+                            if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                                return;
+                            }
                             UI.setVoiceState(state);
                             syncVoicePanel();
                             if (state === 'idle' && initialText && !initialTextSent) {
@@ -1727,11 +1799,17 @@ define([
                             }
                         },
                         onError: function(msg) {
+                            if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                                return;
+                            }
                             UI.setVoiceState('disconnected');
                             teardownVoiceSessionUi();
                             addAssistantMsg(msg || 'Voice connection failed.');
                         },
                         onSuggestions: function(nextChips) {
+                            if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                                return;
+                            }
                             UI.showSuggestions(nextChips, function(text) {
                                 UI.clearSuggestions();
                                 if (text === 'End practice') {
@@ -1750,6 +1828,9 @@ define([
                 if (acquiredMicStream) {
                     acquiredMicStream.getTracks().forEach(function(track) { track.stop(); });
                     acquiredMicStream = null;
+                }
+                if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                    return;
                 }
                 UI.setVoiceState('disconnected');
                 teardownVoiceSessionUi();
@@ -1787,12 +1868,12 @@ define([
         var assistantName = (root && root.dataset.displayname) ? root.dataset.displayname : 'SOLA';
 
         const endSession = function() {
-            Voice.disconnect();
-            teardownVoiceSessionUi();
+            stopActiveVoiceSession();
         };
 
         UI.showVoiceOverlay(avatarUrl, endSession,
             'Start speaking \u2014 ' + assistantName + ' will listen and respond.');
+        const sessionRequestId = beginVoiceSession();
         UI.setVoiceState('idle');
         syncVoicePanel();
 
@@ -1807,9 +1888,15 @@ define([
                 voice,
                 {
                     onTranscript: function(role, text) {
+                        if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                            return;
+                        }
                         UI.appendVoiceTranscript(role, text);
                     },
                     onStateChange: function(state) {
+                        if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                            return;
+                        }
                         UI.setVoiceState(state);
                         syncVoicePanel();
                         if (state === 'disconnected') {
@@ -1817,12 +1904,18 @@ define([
                         }
                     },
                     onError: function(msg) {
+                        if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                            return;
+                        }
                         Voice.disconnect();
                         UI.setVoiceState('disconnected');
                         teardownVoiceSessionUi();
                         addAssistantMsg(msg || 'Voice mode failed.');
                     },
                     onSuggestions: function(chips) {
+                        if (!isCurrentVoiceSessionRequest(sessionRequestId)) {
+                            return;
+                        }
                         UI.showSuggestions(chips, function(text) {
                             UI.clearSuggestions();
                             Voice.sendText(text);
