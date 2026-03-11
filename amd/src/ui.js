@@ -89,7 +89,7 @@ define([
     let lastScrollTop = 0;
     /** True while a programmatic scrollTop assignment is in progress (suppresses user-scroll detection) */
     let programmaticScroll = false;
-    /** Resize observer for keeping the floating close toggle aligned with the drawer edge */
+    /** Resize observer for keeping drawer width-dependent UI in sync */
     let drawerResizeObserver = null;
     /** Minimum pixel movement to count as a drag (suppresses subsequent click) */
     const DRAG_THRESHOLD = 8;
@@ -1112,10 +1112,14 @@ define([
     };
 
     /**
-     * Keep the floating close tab aligned with the open drawer edge.
-     * Hidden outside desktop drawer mode.
+     * Sync drawer width CSS vars and the close-tab accessibility state.
      */
     const syncCloseTogglePosition = function() {
+        if (root && drawer) {
+            const width = Math.max(0, drawer.offsetWidth || drawer.getBoundingClientRect().width || 400);
+            root.style.setProperty('--aica-drawer-width', width + 'px');
+        }
+
         if (!closeToggle) {
             return;
         }
@@ -1123,20 +1127,12 @@ define([
         const showCloseToggle = !!(root &&
             root.classList.contains('local-ai-course-assistant--drawer-mode') &&
             isOpen() &&
-            window.innerWidth > 600 &&
-            drawer);
+            window.innerWidth > 600);
 
-        closeToggle.hidden = !showCloseToggle;
         closeToggle.setAttribute('aria-hidden', showCloseToggle ? 'false' : 'true');
         closeToggle.setAttribute('aria-expanded', showCloseToggle ? 'true' : 'false');
-
-        if (!showCloseToggle) {
-            closeToggle.style.right = '';
-            return;
-        }
-
-        const rightOffset = Math.max(0, drawer.offsetWidth || drawer.getBoundingClientRect().width || 400);
-        closeToggle.style.right = rightOffset + 'px';
+        closeToggle.disabled = !showCloseToggle;
+        closeToggle.tabIndex = showCloseToggle ? 0 : -1;
     };
 
     /**

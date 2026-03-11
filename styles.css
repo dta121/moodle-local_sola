@@ -124,10 +124,6 @@
 }
 
 .local-ai-course-assistant__toggle--close {
-    position: fixed;
-    top: 50%;
-    right: 400px;
-    transform: translateY(-50%);
     width: 44px;
     height: 52px;
     border-radius: 10px 0 0 10px;
@@ -135,9 +131,11 @@
     background: var(--aica-brand-color) !important;
     color: #ffffff;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.12);
-    pointer-events: auto;
-    z-index: 100001;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.2s ease, box-shadow 0.2s ease;
 }
 
 .local-ai-course-assistant__toggle--close svg {
@@ -146,7 +144,6 @@
 
 @media (hover: hover) {
     .local-ai-course-assistant__toggle--close:hover {
-        transform: translateY(-50%);
         width: 50px;
         box-shadow: -4px 0 12px rgba(0, 0, 0, 0.2);
     }
@@ -1522,6 +1519,9 @@
    ========================================================= */
 
 .local-ai-course-assistant--drawer-mode {
+    --aica-drawer-duration: 300ms;
+    --aica-drawer-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --aica-drawer-width: 400px;
     position: fixed;
     top: 0;
     right: 0;
@@ -1550,6 +1550,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 1;
+    visibility: visible;
+    transition:
+        opacity var(--aica-drawer-duration) var(--aica-drawer-ease),
+        visibility 0s linear 0s,
+        box-shadow 0.2s ease,
+        width 0.2s ease;
 }
 
 /* Saylor brand accent overrides */
@@ -1696,9 +1703,16 @@
     }
 }
 
-/* Hide the tab when drawer is open */
+/* Fade the reopen tab out while the drawer slides in so both feel linked. */
 .local-ai-course-assistant--drawer-mode.local-ai-course-assistant--open .local-ai-course-assistant__toggle:not(.local-ai-course-assistant__toggle--close) {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity var(--aica-drawer-duration) var(--aica-drawer-ease),
+        visibility 0s linear var(--aica-drawer-duration),
+        box-shadow 0.2s ease,
+        width 0.2s ease;
 }
 
 /* Drawer: full-height right panel */
@@ -1708,22 +1722,50 @@
     right: 0;
     bottom: 0;
     left: auto;
-    width: 400px;
+    width: var(--aica-drawer-width);
     height: 100vh;
     height: 100dvh;
     max-height: none;
     border-radius: 0;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    overflow: visible;
     transform: translateX(100%);
     opacity: 1;
     pointer-events: none;
-    transition: transform 0.3s ease;
+    transition: transform var(--aica-drawer-duration) var(--aica-drawer-ease);
 }
 
 .local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer[aria-hidden="false"] {
     transform: translateX(0);
     pointer-events: auto;
     opacity: 1;
+}
+
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__toggle--close {
+    position: absolute;
+    left: -44px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity var(--aica-drawer-duration) var(--aica-drawer-ease),
+        visibility 0s linear var(--aica-drawer-duration),
+        width 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.local-ai-course-assistant--drawer-mode .local-ai-course-assistant__drawer[aria-hidden="false"] .local-ai-course-assistant__toggle--close {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+        opacity var(--aica-drawer-duration) var(--aica-drawer-ease),
+        visibility 0s linear 0s,
+        width 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 /* Expanded state in drawer mode — wider panel */
@@ -1738,7 +1780,7 @@
    The margin is managed by JS; this adds a smooth transition. */
 @media (min-width: 601px) {
     #page.aica-drawer-push {
-        transition: margin-right 0.3s ease;
+        transition: margin-right var(--aica-drawer-duration, 300ms) var(--aica-drawer-ease, cubic-bezier(0.4, 0, 0.2, 1));
     }
 }
 
