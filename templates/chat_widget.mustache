@@ -374,6 +374,9 @@
 
         <div class="local-ai-course-assistant__history-panel"
              data-empty-label="{{#str}}chat:history_empty, local_ai_course_assistant{{/str}}"
+             data-recent-subtitle="{{#str}}chat:history_subtitle, local_ai_course_assistant{{/str}}"
+             data-saved-subtitle="Saved responses stay on this device for this course."
+             data-saved-empty-label="Save a SOLA response to see it here."
              data-you-label="{{#str}}chat:you, local_ai_course_assistant{{/str}}"
              data-assistant-label="{{displayname}}"
              hidden>
@@ -388,6 +391,20 @@
                     </button>
                 </div>
                 <p class="aica-history-panel__subtitle">{{#str}}chat:history_subtitle, local_ai_course_assistant{{/str}}</p>
+                <div class="aica-history-panel__views" role="tablist" aria-label="History views">
+                    <button type="button"
+                            class="aica-history-panel__view aica-history-panel__view--active"
+                            data-history-view="recent"
+                            aria-pressed="true">
+                        Recent
+                    </button>
+                    <button type="button"
+                            class="aica-history-panel__view"
+                            data-history-view="saved"
+                            aria-pressed="false">
+                        Saved
+                    </button>
+                </div>
                 <div class="aica-history-panel__list" aria-live="polite"></div>
             </div>
         </div>

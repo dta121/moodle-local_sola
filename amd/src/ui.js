@@ -68,6 +68,10 @@ define([
         currentModel: '',
         onChange: null,
     };
+    /** Cached messages for the History panel Recent view. */
+    let historyPanelMessages = [];
+    /** Current History panel subview. */
+    let historyPanelView = 'recent';
 
     /** localStorage key for persisting expanded state */
     const EXPAND_KEY = 'aica_expand_state';
@@ -532,6 +536,11 @@ define([
                 emitComposerLlmChange();
             });
         }
+        root.querySelectorAll('.aica-history-panel__view').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setHistoryPanelView(btn.dataset.historyView || 'recent');
+            });
+        });
         // Apply admin-configured avatar colors as CSS variables and inline styles.
         const avatarColor = root.dataset.avatarColor;
         if (avatarColor) {
@@ -577,7 +586,8 @@ define([
         // the preset <img> is always shown and the white fill shows through.
         try { localStorage.removeItem(AVATAR_KEY); } catch (e) { /**/ }
         initSVGAvatars();
-        renderHistoryPanel([]);
+        historyPanelMessages = [];
+        setHistoryPanelView('recent');
         setBottomMode('chat');
         syncCloseTogglePosition();
     };
@@ -1743,21 +1753,62 @@ define([
         return text && getBookmarks().some(function(b) { return b.text === text; });
     };
 
+    const setBookmarkButtonState = function(btn, saved) {
+        if (!btn) {
+            return;
+        }
+        btn.classList.toggle('local-ai-course-assistant__btn-bookmark--saved', !!saved);
+        btn.setAttribute('aria-label', saved ? 'Remove from saved' : 'Save response');
+        btn.setAttribute('title', saved ? 'Remove from saved' : 'Save response');
+    };
+
+    const syncBookmarkButtonsForText = function(text, saved) {
+        if (!messagesContainer || !text) {
+            return;
+        }
+        messagesContainer.querySelectorAll('.local-ai-course-assistant__btn-bookmark').forEach(function(button) {
+            const message = button.closest('.local-ai-course-assistant__message');
+            const content = message ? message.querySelector('.local-ai-course-assistant__message-content') : null;
+            if (content && content.textContent === text) {
+                setBookmarkButtonState(button, saved);
+            }
+        });
+    };
+
+    const removeBookmarkByText = function(text) {
+        if (!text) {
+            return false;
+        }
+        const bmarks = getBookmarks();
+        const idx = bmarks.findIndex(function(b) { return b.text === text; });
+        if (idx < 0) {
+            return false;
+        }
+        bmarks.splice(idx, 1);
+        saveBookmarks();
+        syncBookmarkButtonsForText(text, false);
+        renderHistoryPanel();
+        return true;
+    };
+
     const toggleBookmark = function(text, btn) {
+        if (!text) {
+            return;
+        }
         const bmarks = getBookmarks();
         const idx = bmarks.findIndex(function(b) { return b.text === text; });
         if (idx >= 0) {
-            bmarks.splice(idx, 1);
-            btn.classList.remove('local-ai-course-assistant__btn-bookmark--saved');
-            btn.setAttribute('title', 'Save response');
+            removeBookmarkByText(text);
+            setBookmarkButtonState(btn, false);
             showNotification('Removed from saved responses');
         } else {
             bmarks.push({text: text, saved_at: Date.now()});
-            btn.classList.add('local-ai-course-assistant__btn-bookmark--saved');
-            btn.setAttribute('title', 'Remove from saved');
+            saveBookmarks();
+            syncBookmarkButtonsForText(text, true);
+            setBookmarkButtonState(btn, true);
+            renderHistoryPanel();
             showNotification('Saved!');
         }
-        saveBookmarks();
     };
 
     // -----------------------------------------------------------------------
@@ -1835,9 +1886,7 @@ define([
         const bookmarkBtn = document.createElement('button');
         bookmarkBtn.className = 'local-ai-course-assistant__btn-bookmark';
         const savedNow = text ? isBookmarked(text) : false;
-        if (savedNow) { bookmarkBtn.classList.add('local-ai-course-assistant__btn-bookmark--saved'); }
-        bookmarkBtn.setAttribute('aria-label', savedNow ? 'Remove from saved' : 'Save response');
-        bookmarkBtn.setAttribute('title', savedNow ? 'Remove from saved' : 'Save response');
+        setBookmarkButtonState(bookmarkBtn, savedNow);
         bookmarkBtn.innerHTML = BOOKMARK_SVG;
         bookmarkBtn.addEventListener('click', function() {
             toggleBookmark(content.textContent || '', bookmarkBtn);
@@ -2246,11 +2295,49 @@ define([
     };
 
     /**
+     * Switch the History panel between Recent and Saved views.
+     *
+     * @param {string} view
+     */
+    const setHistoryPanelView = function(view) {
+        historyPanelView = view === 'saved' ? 'saved' : 'recent';
+        if (!root) {
+            return;
+        }
+        const panel = root.querySelector('.local-ai-course-assistant__history-panel');
+        if (!panel) {
+            return;
+        }
+        const subtitle = panel.querySelector('.aica-history-panel__subtitle');
+        const refreshBtn = panel.querySelector('.aica-history-panel__refresh');
+        const recentSubtitle = panel.dataset.recentSubtitle || (subtitle ? subtitle.textContent : '');
+        const savedSubtitle = panel.dataset.savedSubtitle || 'Saved responses stay on this device for this course.';
+
+        panel.querySelectorAll('.aica-history-panel__view').forEach(function(button) {
+            const active = (button.dataset.historyView || 'recent') === historyPanelView;
+            button.classList.toggle('aica-history-panel__view--active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        if (subtitle) {
+            subtitle.textContent = historyPanelView === 'saved' ? savedSubtitle : recentSubtitle;
+        }
+        if (refreshBtn) {
+            refreshBtn.hidden = historyPanelView !== 'recent';
+        }
+
+        renderHistoryPanel();
+    };
+
+    /**
      * Render the compact chat history panel.
      *
-     * @param {Array} messages
+     * @param {Array=} messages
      */
     const renderHistoryPanel = function(messages) {
+        if (Array.isArray(messages)) {
+            historyPanelMessages = messages.slice();
+        }
         if (!root) {
             return;
         }
@@ -2262,7 +2349,78 @@ define([
 
         list.innerHTML = '';
 
-        const items = (messages || []).map(function(msg) {
+        if (historyPanelView === 'saved') {
+            const savedItems = getBookmarks().slice().reverse();
+            if (!savedItems.length) {
+                const emptySaved = document.createElement('div');
+                emptySaved.className = 'aica-history-panel__empty';
+                emptySaved.textContent = panel.dataset.savedEmptyLabel || 'Save a SOLA response to see it here.';
+                list.appendChild(emptySaved);
+                return;
+            }
+
+            savedItems.forEach(function(item) {
+                const entry = document.createElement('div');
+                entry.className = 'aica-history-panel__item';
+
+                const meta = document.createElement('div');
+                meta.className = 'aica-history-panel__meta';
+
+                const role = document.createElement('span');
+                role.className = 'aica-history-panel__role aica-history-panel__role--saved';
+                role.textContent = 'Saved';
+                meta.appendChild(role);
+
+                const stamp = formatHistoryTimestamp(item.saved_at || null);
+                if (stamp) {
+                    const time = document.createElement('span');
+                    time.className = 'aica-history-panel__time';
+                    time.textContent = stamp;
+                    meta.appendChild(time);
+                }
+
+                const text = document.createElement('p');
+                text.className = 'aica-history-panel__message';
+                text.textContent = (item.text || '').replace(/\s+/g, ' ').trim();
+
+                const actions = document.createElement('div');
+                actions.className = 'aica-history-panel__actions';
+
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'aica-history-panel__action';
+                copyBtn.textContent = 'Copy';
+                copyBtn.addEventListener('click', function() {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(item.text || '').then(function() {
+                            showNotification('Saved response copied');
+                        }).catch(function() {
+                            showNotification('Could not copy saved response right now.', 'error');
+                        });
+                    }
+                });
+                actions.appendChild(copyBtn);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'aica-history-panel__action';
+                removeBtn.textContent = 'Remove';
+                removeBtn.addEventListener('click', function() {
+                    if (removeBookmarkByText(item.text || '')) {
+                        showNotification('Removed from saved responses');
+                    }
+                });
+                actions.appendChild(removeBtn);
+
+                entry.appendChild(meta);
+                entry.appendChild(text);
+                entry.appendChild(actions);
+                list.appendChild(entry);
+            });
+            return;
+        }
+
+        const items = historyPanelMessages.map(function(msg) {
             const rawText = (msg.text !== undefined ? msg.text : msg.message) || '';
             const cleanText = rawText
                 .replace(/\n*\[SOLA_NEXT\][\s\S]*?\[\/SOLA_NEXT\]/g, '')
@@ -3020,23 +3178,10 @@ define([
                 removeBtn.setAttribute('aria-label', 'Remove bookmark');
                 removeBtn.textContent = '\u00d7';
                 removeBtn.addEventListener('click', function() {
-                    const idx = getBookmarks().findIndex(function(x) { return x.text === b.text; });
-                    if (idx >= 0) { getBookmarks().splice(idx, 1); saveBookmarks(); }
+                    removeBookmarkByText(b.text);
                     item.remove();
                     // Update count in heading.
                     savedHead.textContent = 'Saved responses (' + getBookmarks().length + ')';
-                    // Also un-fill any bookmark button for this text.
-                    if (messagesContainer) {
-                        messagesContainer.querySelectorAll('.local-ai-course-assistant__btn-bookmark').forEach(function(btn) {
-                            const msgContent = btn.closest('.local-ai-course-assistant__message')
-                                && btn.closest('.local-ai-course-assistant__message')
-                                    .querySelector('.local-ai-course-assistant__message-content');
-                            if (msgContent && msgContent.textContent === b.text) {
-                                btn.classList.remove('local-ai-course-assistant__btn-bookmark--saved');
-                                btn.setAttribute('title', 'Save response');
-                            }
-                        });
-                    }
                 });
                 item.appendChild(removeBtn);
                 savedSection.appendChild(item);

@@ -645,6 +645,10 @@
     .aica-history-panel__refresh:hover:not(:disabled) {
         transform: translateY(-1px);
     }
+
+    .aica-history-panel__view:hover {
+        color: #12222c;
+    }
 }
 
 .aica-mode-card__primary:disabled {
@@ -674,6 +678,42 @@
 
 .aica-history-panel__subtitle {
     margin-top: 8px;
+}
+
+.aica-history-panel__views {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 4px;
+    border-radius: 999px;
+    background: #edf2f7;
+    align-self: flex-start;
+}
+
+.aica-history-panel__view {
+    border: none;
+    background: transparent;
+    color: #52616c;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.aica-history-panel__view--active {
+    background: #ffffff;
+    color: #12222c;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.aica-history-panel__view:focus-visible,
+.aica-history-panel__action:focus-visible {
+    outline: 2px solid rgba(var(--aica-brand-rgb), 0.35);
+    outline-offset: 2px;
 }
 
 .aica-history-panel__refresh {
@@ -737,9 +777,37 @@
     color: #41515d;
 }
 
+.aica-history-panel__role--saved {
+    background: rgba(var(--aica-brand-rgb), 0.12);
+    color: var(--aica-brand-color);
+}
+
 .aica-history-panel__time {
     font-size: 11px;
     color: #8a97a5;
+}
+
+.aica-history-panel__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.aica-history-panel__action {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--aica-brand-color);
+}
+
+@media (hover: hover) {
+    .aica-history-panel__action:hover {
+        text-decoration: underline;
+    }
 }
 
 .aica-history-panel__empty {
