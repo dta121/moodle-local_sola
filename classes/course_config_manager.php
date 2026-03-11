@@ -17,9 +17,9 @@
 namespace local_ai_course_assistant;
 
 /**
- * Per-course AI provider configuration manager.
+ * Per-course SOLA configuration manager.
  *
- * Allows site admins to override the global AI provider settings on a
+ * Allows site admins to override selected conversation behavior on a
  * per-course basis. Blank fields inherit the global plugin config value.
  *
  * @package    local_ai_course_assistant
@@ -44,8 +44,7 @@ class course_config_manager {
      * Insert or update course config overrides.
      *
      * @param int $courseid
-     * @param array $data Associative array with keys: enabled, provider, apikey,
-     *                    model, apibaseurl, systemprompt, temperature.
+     * @param array $data Associative array with keys: enabled, systemprompt, temperature.
      */
     public static function save(int $courseid, array $data): void {
         global $DB;
@@ -57,10 +56,6 @@ class course_config_manager {
             $record = new \stdClass();
             $record->id = $existing->id;
             $record->enabled = (int) ($data['enabled'] ?? 0);
-            $record->provider = $data['provider'] ?? '';
-            $record->apikey = $data['apikey'] ?? '';
-            $record->model = $data['model'] ?? '';
-            $record->apibaseurl = $data['apibaseurl'] ?? '';
             $record->systemprompt = $data['systemprompt'] ?? '';
             $record->temperature = isset($data['temperature']) && $data['temperature'] !== ''
                 ? (float) $data['temperature'] : null;
@@ -70,10 +65,6 @@ class course_config_manager {
             $record = new \stdClass();
             $record->courseid = $courseid;
             $record->enabled = (int) ($data['enabled'] ?? 0);
-            $record->provider = $data['provider'] ?? '';
-            $record->apikey = $data['apikey'] ?? '';
-            $record->model = $data['model'] ?? '';
-            $record->apibaseurl = $data['apibaseurl'] ?? '';
             $record->systemprompt = $data['systemprompt'] ?? '';
             $record->temperature = isset($data['temperature']) && $data['temperature'] !== ''
                 ? (float) $data['temperature'] : null;
@@ -90,15 +81,10 @@ class course_config_manager {
      * If no course record exists, or the override is disabled, returns global config.
      *
      * @param int $courseid
-     * @return array Effective config with keys: provider, apikey, model,
-     *               apibaseurl, systemprompt, temperature.
+     * @return array Effective config with keys: systemprompt, temperature.
      */
     public static function get_effective_config(int $courseid): array {
         $global = [
-            'provider'    => get_config('local_ai_course_assistant', 'provider') ?: 'openai',
-            'apikey'      => get_config('local_ai_course_assistant', 'apikey') ?: '',
-            'model'       => get_config('local_ai_course_assistant', 'model') ?: '',
-            'apibaseurl'  => get_config('local_ai_course_assistant', 'apibaseurl') ?: '',
             'systemprompt' => get_config('local_ai_course_assistant', 'systemprompt') ?: '',
             'temperature'  => get_config('local_ai_course_assistant', 'temperature') ?: '0.7',
         ];
@@ -113,10 +99,6 @@ class course_config_manager {
         }
 
         return [
-            'provider'    => !empty($course->provider)    ? $course->provider    : $global['provider'],
-            'apikey'      => !empty($course->apikey)      ? $course->apikey      : $global['apikey'],
-            'model'       => !empty($course->model)       ? $course->model       : $global['model'],
-            'apibaseurl'  => !empty($course->apibaseurl)  ? $course->apibaseurl  : $global['apibaseurl'],
             'systemprompt' => !empty($course->systemprompt) ? $course->systemprompt : $global['systemprompt'],
             'temperature'  => isset($course->temperature) && $course->temperature !== null
                 ? (string) $course->temperature

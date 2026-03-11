@@ -207,14 +207,15 @@ class hook_callbacks {
         // by the conversation starter configuration.
         $ellpronunciationenabled = $realtimeenabled;
 
-        // TTS proxy URL: available when an OpenAI key is present (realtime or main provider).
-        $realtimeapikey = get_config('local_ai_course_assistant', 'realtime_apikey');
-        $provider       = get_config('local_ai_course_assistant', 'provider');
-        $mainapikey     = get_config('local_ai_course_assistant', 'apikey');
-        $hasttskey = !empty($realtimeapikey) || ($provider === 'openai' && !empty($mainapikey));
+        // TTS proxy URL: available when an OpenAI voice key is present.
+        $hasttskey = llm_provider_manager::get_openai_voice_key() !== '';
         $ttsurl = $hasttskey
             ? (new \moodle_url('/local/ai_course_assistant/tts.php'))->out(false)
             : '';
+        $llmoptions = llm_provider_manager::get_frontend_options(
+            (bool)get_config('local_ai_course_assistant', 'allow_student_model_switching'),
+            $userrole
+        );
 
         $starters = starter_manager::get_effective_starters($courseid, !empty($ttsurl), $realtimeenabled);
 
@@ -299,6 +300,7 @@ class hook_callbacks {
             'serverpageurl'      => $serverpageurl,
             'serverpagetitle'    => $serverpagetitle,
             'serverpageheading'  => $serverpageheading,
+            'llmoptionsjson'     => json_encode($llmoptions, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
         ];
 
         $html = $OUTPUT->render_from_template('local_ai_course_assistant/chat_widget', $templatedata);

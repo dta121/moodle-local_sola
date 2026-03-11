@@ -15,10 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Per-course AI provider settings page.
+ * Per-course SOLA settings page.
  *
- * Allows site admins to override the global AI provider config for a
- * specific course (e.g. use DeepSeek for Course A, GPT-4o for Course B).
+ * Allows site admins to override selected conversation behavior for a
+ * specific course while provider credentials stay in global admin settings.
  *
  * @package    local_ai_course_assistant
  * @copyright  2025 AI Course Assistant
@@ -51,10 +51,6 @@ $globalsettingsurl = new moodle_url('/admin/settings.php', ['section' => 'local_
 
 // Current global defaults (shown as placeholder hints).
 $globalcfg = [
-    'provider'    => get_config('local_ai_course_assistant', 'provider') ?: 'openai',
-    'apikey'      => get_config('local_ai_course_assistant', 'apikey') ?: '',
-    'model'       => get_config('local_ai_course_assistant', 'model') ?: '',
-    'apibaseurl'  => get_config('local_ai_course_assistant', 'apibaseurl') ?: '',
     'systemprompt' => get_config('local_ai_course_assistant', 'systemprompt') ?: '',
     'temperature'  => get_config('local_ai_course_assistant', 'temperature') ?: '0.7',
 ];
@@ -65,10 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $data = [
         'enabled'     => optional_param('enabled', 0, PARAM_INT),
-        'provider'    => optional_param('provider', '', PARAM_ALPHA),
-        'apikey'      => optional_param('apikey', '', PARAM_RAW_TRIMMED),
-        'model'       => optional_param('model', '', PARAM_RAW_TRIMMED),
-        'apibaseurl'  => optional_param('apibaseurl', '', PARAM_URL),
         'systemprompt' => optional_param('systemprompt', '', PARAM_RAW),
         'temperature'  => optional_param('temperature', '', PARAM_RAW_TRIMMED),
     ];
@@ -117,11 +109,8 @@ $ragcourseraw = get_config('local_ai_course_assistant', 'rag_enabled_course_' . 
 $ragcourseenabled = ($ragcourseraw === false) || (bool)$ragcourseraw;
 $englishlockenabled = (bool)get_config('local_ai_course_assistant', 'english_lock_course_' . $courseid);
 
-// TTS available when an OpenAI key is configured globally.
-$realtimeapikey = get_config('local_ai_course_assistant', 'realtime_apikey');
-$provider       = get_config('local_ai_course_assistant', 'provider');
-$mainapikey     = get_config('local_ai_course_assistant', 'apikey');
-$hasttskey = !empty($realtimeapikey) || ($provider === 'openai' && !empty($mainapikey));
+// TTS available when an OpenAI-compatible voice key is configured globally.
+$hasttskey = \local_ai_course_assistant\llm_provider_manager::get_openai_voice_key() !== '';
 $startersettingsurl = new moodle_url('/local/ai_course_assistant/starter_settings.php');
 $starteroverrides = starter_manager::get_course_overrides($courseid);
 $starters = starter_manager::get_global_starters();
@@ -134,18 +123,6 @@ foreach ($starters as &$starter) {
         : !empty($starter['enabled']);
 }
 unset($starter);
-
-// Build provider options.
-$providers = [
-    ''         => get_string('coursesettings:using_global', 'local_ai_course_assistant') .
-                  ' (' . $globalcfg['provider'] . ')',
-    'claude'   => get_string('settings:provider_claude', 'local_ai_course_assistant'),
-    'openai'   => get_string('settings:provider_openai', 'local_ai_course_assistant'),
-    'deepseek' => get_string('settings:provider_deepseek', 'local_ai_course_assistant'),
-    'ollama'   => get_string('settings:provider_ollama', 'local_ai_course_assistant'),
-    'minimax'  => get_string('settings:provider_minimax', 'local_ai_course_assistant'),
-    'custom'   => get_string('settings:provider_custom', 'local_ai_course_assistant'),
-];
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('coursesettings:title', 'local_ai_course_assistant'));
@@ -202,68 +179,6 @@ echo html_writer::div(
                         <a href="<?php echo $globalsettingsurl->out(false); ?>">
                             <?php echo get_string('coursesettings:global_settings_link', 'local_ai_course_assistant'); ?>
                         </a>
-                    </small>
-                </div>
-            </div>
-
-            <!-- Provider -->
-            <div class="form-group row">
-                <label class="col-sm-3 col-form-label" for="provider">
-                    <?php echo get_string('settings:provider', 'local_ai_course_assistant'); ?>
-                </label>
-                <div class="col-sm-9">
-                    <select class="form-control" id="provider" name="provider">
-                        <?php foreach ($providers as $val => $label) { ?>
-                        <option value="<?php echo s($val); ?>"
-                            <?php if ($current && $current->provider === $val) { echo 'selected'; } ?>>
-                            <?php echo s($label); ?>
-                        </option>
-                        <?php } ?>
-                    </select>
-                </div>
-            </div>
-
-            <!-- API Key -->
-            <div class="form-group row">
-                <label class="col-sm-3 col-form-label" for="apikey">
-                    <?php echo get_string('settings:apikey', 'local_ai_course_assistant'); ?>
-                </label>
-                <div class="col-sm-9">
-                    <input type="password" class="form-control" id="apikey" name="apikey"
-                           value="<?php echo s($current ? $current->apikey : ''); ?>"
-                           placeholder="<?php echo get_string('coursesettings:using_global', 'local_ai_course_assistant'); ?>">
-                    <small class="form-text text-muted">
-                        <?php echo get_string('settings:apikey_desc', 'local_ai_course_assistant'); ?>
-                    </small>
-                </div>
-            </div>
-
-            <!-- Model -->
-            <div class="form-group row">
-                <label class="col-sm-3 col-form-label" for="model">
-                    <?php echo get_string('settings:model', 'local_ai_course_assistant'); ?>
-                </label>
-                <div class="col-sm-9">
-                    <input type="text" class="form-control" id="model" name="model"
-                           value="<?php echo s($current ? $current->model : ''); ?>"
-                           placeholder="<?php echo s($globalcfg['model']); ?>">
-                    <small class="form-text text-muted">
-                        <?php echo get_string('settings:model_desc', 'local_ai_course_assistant'); ?>
-                    </small>
-                </div>
-            </div>
-
-            <!-- API Base URL -->
-            <div class="form-group row">
-                <label class="col-sm-3 col-form-label" for="apibaseurl">
-                    <?php echo get_string('settings:apibaseurl', 'local_ai_course_assistant'); ?>
-                </label>
-                <div class="col-sm-9">
-                    <input type="text" class="form-control" id="apibaseurl" name="apibaseurl"
-                           value="<?php echo s($current ? $current->apibaseurl : ''); ?>"
-                           placeholder="<?php echo s($globalcfg['apibaseurl']); ?>">
-                    <small class="form-text text-muted">
-                        <?php echo get_string('settings:apibaseurl_desc', 'local_ai_course_assistant'); ?>
                     </small>
                 </div>
             </div>

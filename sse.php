@@ -57,6 +57,8 @@ $coachstyle = optional_param('coachingstyle', '', PARAM_ALPHA); // Coaching styl
 $timelimit  = optional_param('timelimit', 0, PARAM_INT);      // Time constraint in minutes (0 = none).
 $firstgen   = optional_param('firstgen', 0, PARAM_BOOL);      // First-generation student mode.
 $completion = optional_param('completion', 0, PARAM_INT);      // Course completion percentage (0-100).
+$requestedprovider = optional_param('provider', '', PARAM_ALPHANUMEXT);
+$requestedmodel = optional_param('model', '', PARAM_RAW_TRIMMED);
 $clienturl = optional_param('clienturl', '', PARAM_RAW_TRIMMED);
 $clienttitle = optional_param('clienttitle', '', PARAM_TEXT);
 $pageheading = optional_param('pageheading', '', PARAM_TEXT);
@@ -308,6 +310,8 @@ try {
                     'pageid' => $pageid,
                     'pagetitle' => $pagetitle,
                     'lang' => $lang ?: null,
+                    'provider' => $requestedprovider ?: null,
+                    'model' => $requestedmodel ?: null,
                     'coachingstyle' => $coachstyle ?: null,
                     'timelimit' => $timelimit ?: null,
                     'firstgen' => (bool)$firstgen,
@@ -336,22 +340,51 @@ try {
 
     $history = conversation_manager::get_history_for_api($conv->id);
 
-    // Create provider and stream (uses per-course overrides if configured).
-    $provider = base_provider::create_from_config($courseid);
     $fullresponse = '';
     $streamoptions = [];
     $maxtokens = (int) get_config('local_ai_course_assistant', 'max_tokens');
     if ($maxtokens > 0) {
         $streamoptions['max_tokens'] = $maxtokens;
     }
+    $runtimeconfig = base_provider::resolve_runtime_config($courseid, $requestedprovider, $requestedmodel);
+    $usedruntime = $runtimeconfig;
+    $streamstarted = false;
+    $tokenusage = null;
 
-    $provider->chat_completion_stream($systemprompt, $history, function (string $chunk) use (&$fullresponse) {
-        $fullresponse .= $chunk;
-        sse_send(['token' => $chunk]);
-    }, $streamoptions);
+    $streamwithconfig = function(array $config) use (
+        $systemprompt,
+        $history,
+        $streamoptions,
+        &$fullresponse,
+        &$streamstarted,
+        &$tokenusage
+    ): void {
+        $provider = base_provider::create_from_runtime_config($config);
+        $provider->chat_completion_stream($systemprompt, $history, function(string $chunk) use (&$fullresponse, &$streamstarted) {
+            $streamstarted = true;
+            $fullresponse .= $chunk;
+            sse_send(['token' => $chunk]);
+        }, $streamoptions);
+        $tokenusage = $provider->get_last_token_usage();
+    };
 
-    // Capture token usage immediately after streaming — before any other operations.
-    $tokenusage = $provider->get_last_token_usage();
+    try {
+        $streamwithconfig($runtimeconfig);
+    } catch (\Throwable $e) {
+        $fallbackconfig = base_provider::get_fallback_runtime_config($courseid, $runtimeconfig);
+        if ($streamstarted || $fallbackconfig === null) {
+            throw $e;
+        }
+
+        debugging(
+            'LLM selection failed for SSE chat; retrying with the system default provider.',
+            DEBUG_DEVELOPER
+        );
+        $usedruntime = $fallbackconfig;
+        $fullresponse = '';
+        $tokenusage = null;
+        $streamwithconfig($fallbackconfig);
+    }
 
     // Process markers in the response before saving.
     $cleanresponse = $fullresponse;
@@ -373,8 +406,6 @@ try {
     $cleanresponse = trim($cleanresponse);
 
     // Save the clean assistant response (without markers), recording which provider was used.
-    $effectivecfg = \local_ai_course_assistant\course_config_manager::get_effective_config($courseid);
-    $providername = $effectivecfg['provider'] ?? get_config('local_ai_course_assistant', 'provider');
     conversation_manager::add_message(
         $conv->id,
         $userid,
@@ -382,10 +413,10 @@ try {
         'assistant',
         $cleanresponse,
         0,
-        $providername,
+        $usedruntime['provider'],
         $tokenusage['prompt_tokens'] ?? null,
         $tokenusage['completion_tokens'] ?? null,
-        $tokenusage['model'] ?? null
+        $tokenusage['model'] ?? $usedruntime['model']
     );
 
     // Handle off-topic tracking.

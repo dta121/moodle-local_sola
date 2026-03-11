@@ -2540,6 +2540,8 @@ define([
         let pendingAvatarId = null;
         let pendingAvatarUrl = config.currentAvatarUrl || null;
         let pendingVoice = config.currentVoice || 'marin';
+        let pendingProvider = config.currentProvider || '';
+        let pendingModel = config.currentModel || '';
 
         const panel = document.createElement('div');
         panel.className = 'aica-settings-panel';
@@ -2600,6 +2602,78 @@ define([
         });
         langSection.appendChild(langSelect);
         content.appendChild(langSection);
+
+        if (config.modelSwitchEnabled && config.providerOptions && config.providerOptions.length) {
+            const llmSection = document.createElement('div');
+            llmSection.className = 'aica-settings-panel__section';
+            const llmHead = document.createElement('h3');
+            llmHead.className = 'aica-settings-panel__section-title';
+            llmHead.textContent = 'AI Model';
+            llmSection.appendChild(llmHead);
+
+            const llmNote = document.createElement('p');
+            llmNote.className = 'aica-settings-panel__empty-note';
+            llmNote.textContent = 'Only models that are currently configured by your administrator appear here.';
+            llmSection.appendChild(llmNote);
+
+            const providerSelect = document.createElement('select');
+            providerSelect.className = 'aica-settings-panel__select';
+            providerSelect.setAttribute('aria-label', 'AI provider');
+            config.providerOptions.forEach(function(item) {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.label;
+                if (item.id === pendingProvider) {
+                    opt.selected = true;
+                }
+                providerSelect.appendChild(opt);
+            });
+
+            const modelSelect = document.createElement('select');
+            modelSelect.className = 'aica-settings-panel__select';
+            modelSelect.style.marginTop = '8px';
+            modelSelect.setAttribute('aria-label', 'AI model');
+
+            const renderModelOptions = function(providerId) {
+                modelSelect.innerHTML = '';
+                const providerConfig = config.providerOptions.find(function(item) {
+                    return item.id === providerId;
+                }) || config.providerOptions[0];
+                if (!providerConfig) {
+                    pendingProvider = '';
+                    pendingModel = '';
+                    return;
+                }
+                pendingProvider = providerConfig.id;
+                let selectedModel = pendingModel;
+                if (!selectedModel || providerConfig.models.indexOf(selectedModel) === -1) {
+                    selectedModel = providerConfig.models[0] || '';
+                }
+                providerConfig.models.forEach(function(model) {
+                    const opt = document.createElement('option');
+                    opt.value = model;
+                    opt.textContent = model;
+                    if (model === selectedModel) {
+                        opt.selected = true;
+                    }
+                    modelSelect.appendChild(opt);
+                });
+                pendingModel = selectedModel;
+            };
+
+            providerSelect.addEventListener('change', function() {
+                renderModelOptions(providerSelect.value);
+            });
+            modelSelect.addEventListener('change', function() {
+                pendingModel = modelSelect.value;
+            });
+
+            renderModelOptions(pendingProvider || (config.providerOptions[0] && config.providerOptions[0].id) || '');
+
+            llmSection.appendChild(providerSelect);
+            llmSection.appendChild(modelSelect);
+            content.appendChild(llmSection);
+        }
 
         // ── Coaching Style ──
         const coachSection = document.createElement('div');
@@ -2990,6 +3064,13 @@ define([
             if (pendingVoice && pendingVoice !== (config.currentVoice || 'marin')) {
                 if (callbacks.onVoiceSelect) {
                     callbacks.onVoiceSelect(pendingVoice);
+                }
+            }
+            if (config.modelSwitchEnabled && pendingProvider && pendingModel &&
+                    (pendingProvider !== (config.currentProvider || '') ||
+                    pendingModel !== (config.currentModel || ''))) {
+                if (callbacks.onLlmSelect) {
+                    callbacks.onLlmSelect(pendingProvider, pendingModel);
                 }
             }
             // Save coaching style.

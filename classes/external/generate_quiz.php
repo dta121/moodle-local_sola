@@ -39,10 +39,19 @@ class generate_quiz extends external_api {
             'count'    => new external_value(PARAM_INT, 'Number of questions (3-10)', VALUE_DEFAULT, 3),
             'topic'    => new external_value(PARAM_TEXT, 'Topic or __guided__ or empty', VALUE_DEFAULT, '__guided__'),
             'cmid'     => new external_value(PARAM_INT, 'Current module/page ID (0 if not on a resource page)', VALUE_DEFAULT, 0),
+            'provider' => new external_value(PARAM_ALPHANUMEXT, 'Requested provider ID', VALUE_DEFAULT, ''),
+            'model'    => new external_value(PARAM_RAW_TRIMMED, 'Requested model name', VALUE_DEFAULT, ''),
         ]);
     }
 
-    public static function execute(int $courseid, int $count = 3, string $topic = '__guided__', int $cmid = 0): array {
+    public static function execute(
+        int $courseid,
+        int $count = 3,
+        string $topic = '__guided__',
+        int $cmid = 0,
+        string $provider = '',
+        string $model = ''
+    ): array {
         global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
@@ -50,6 +59,8 @@ class generate_quiz extends external_api {
             'count'    => $count,
             'topic'    => $topic,
             'cmid'     => $cmid,
+            'provider' => $provider,
+            'model'    => $model,
         ]);
 
         $context = \context_course::instance($params['courseid']);
@@ -109,13 +120,37 @@ class generate_quiz extends external_api {
         }
 
         try {
-            $provider = base_provider::create_from_config($courseid);
-            $response = $provider->chat_completion(
+            $runtimeconfig = base_provider::resolve_runtime_config(
+                $courseid,
+                $params['provider'],
+                $params['model']
+            );
+            $providerinstance = base_provider::create_from_runtime_config($runtimeconfig);
+            $response = $providerinstance->chat_completion(
                 $systemprompt,
                 [['role' => 'user', 'content' => 'Generate the quiz now.']]
             );
         } catch (\Throwable $e) {
-            return ['success' => false, 'error' => $e->getMessage(), 'topic' => '', 'questions' => []];
+            try {
+                $fallbackconfig = isset($runtimeconfig)
+                    ? base_provider::get_fallback_runtime_config($courseid, $runtimeconfig)
+                    : null;
+                if ($fallbackconfig !== null) {
+                    debugging(
+                        'LLM selection failed for generate_quiz; retrying with the system default provider.',
+                        DEBUG_DEVELOPER
+                    );
+                    $providerinstance = base_provider::create_from_runtime_config($fallbackconfig);
+                    $response = $providerinstance->chat_completion(
+                        $systemprompt,
+                        [['role' => 'user', 'content' => 'Generate the quiz now.']]
+                    );
+                } else {
+                    throw $e;
+                }
+            } catch (\Throwable $fallbackerror) {
+                return ['success' => false, 'error' => $fallbackerror->getMessage(), 'topic' => '', 'questions' => []];
+            }
         }
 
         // Extract JSON from <quiz>…</quiz> delimiters.

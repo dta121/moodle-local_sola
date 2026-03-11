@@ -91,14 +91,8 @@ class get_realtime_token extends external_api {
         self::validate_context($coursecontext);
         require_capability('local/ai_course_assistant:use', $coursecontext);
 
-        // Get API key: prefer dedicated realtime key, fall back to main key when provider=openai.
-        $apikey = get_config('local_ai_course_assistant', 'realtime_apikey');
-        if (empty($apikey)) {
-            $provider = get_config('local_ai_course_assistant', 'provider');
-            if ($provider === 'openai') {
-                $apikey = get_config('local_ai_course_assistant', 'apikey');
-            }
-        }
+        // Get API key: prefer dedicated realtime key, fall back to the configured OpenAI provider key.
+        $apikey = \local_ai_course_assistant\llm_provider_manager::get_openai_voice_key();
 
         if (empty($apikey)) {
             throw new \moodle_exception('error', 'local_ai_course_assistant', '',

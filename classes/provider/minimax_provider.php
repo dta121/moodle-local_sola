@@ -30,6 +30,6 @@ class minimax_provider extends openai_compatible_provider {
     }
 
     protected function get_default_base_url(): string {
-        return 'https://api.minimax.chat';
+        return 'https://api.minimax.io/v1';
     }
 }

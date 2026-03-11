@@ -47,7 +47,7 @@ class claude_provider extends base_provider {
     }
 
     protected function get_default_base_url(): string {
-        return 'https://api.anthropic.com';
+        return 'https://api.anthropic.com/v1';
     }
 
     /**
@@ -94,7 +94,7 @@ class claude_provider extends base_provider {
     }
 
     public function chat_completion(string $systemprompt, array $messages, array $options = []): string {
-        $url = $this->baseurl . '/v1/messages';
+        $url = $this->baseurl . '/messages';
         $body = $this->build_body($systemprompt, $messages, false, $options);
         $response = $this->http_post($url, $this->get_headers(), $body);
 
@@ -107,7 +107,7 @@ class claude_provider extends base_provider {
     }
 
     public function chat_completion_stream(string $systemprompt, array $messages, callable $callback, array $options = []): void {
-        $url = $this->baseurl . '/v1/messages';
+        $url = $this->baseurl . '/messages';
         $body = $this->build_body($systemprompt, $messages, true, $options);
 
         $buffer = '';

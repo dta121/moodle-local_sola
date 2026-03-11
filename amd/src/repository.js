@@ -28,12 +28,19 @@ define(['core/ajax'], function(Ajax) {
      *
      * @param {number} courseid
      * @param {string} message
+     * @param {string=} provider
+     * @param {string=} model
      * @returns {Promise}
      */
-    const sendMessage = function(courseid, message) {
+    const sendMessage = function(courseid, message, provider, model) {
         return Ajax.call([{
             methodname: 'local_ai_course_assistant_send_message',
-            args: {courseid: courseid, message: message},
+            args: {
+                courseid: courseid,
+                message: message,
+                provider: provider || '',
+                model: model || '',
+            },
         }])[0];
     };
 
@@ -182,9 +189,11 @@ define(['core/ajax'], function(Ajax) {
      * @param {number} count   Number of questions (3–10)
      * @param {string} topic   Topic string, '__guided__', or ''
      * @param {number} cmid    Current module/page ID (0 if not on a resource page)
+     * @param {string=} provider Requested provider ID
+     * @param {string=} model    Requested model name
      * @returns {Promise}
      */
-    const generateQuiz = function(courseid, count, topic, cmid) {
+    const generateQuiz = function(courseid, count, topic, cmid, provider, model) {
         return Ajax.call([{
             methodname: 'local_ai_course_assistant_generate_quiz',
             args: {
@@ -192,6 +201,8 @@ define(['core/ajax'], function(Ajax) {
                 count: count || 3,
                 topic: topic !== undefined ? topic : '__guided__',
                 cmid: cmid || 0,
+                provider: provider || '',
+                model: model || '',
             },
         }])[0];
     };

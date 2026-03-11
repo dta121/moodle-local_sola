@@ -102,6 +102,10 @@ define([
     };
     /** @type {string} Local intro-dismiss key */
     const INTRO_DISMISSED_KEY = 'ai_course_assistant_intro_dismissed';
+    /** @type {string} Local provider preference key */
+    const LLM_PROVIDER_KEY = 'aica_llm_provider';
+    /** @type {string} Local model preference key */
+    const LLM_MODEL_KEY = 'aica_llm_model';
 
     /**
      * Parse SOLA metadata markers from an assistant response.
@@ -592,6 +596,112 @@ define([
      */
     const getPreferredVoice = function(root) {
         return getStoredVoicePreference() || getDefaultVoice(root);
+    };
+
+    /**
+     * Parse the active LLM switcher options from the widget dataset.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {{enabled:boolean,providers:Array,defaultProvider:string,defaultModel:string}}
+     */
+    const getLlmOptions = function(root) {
+        root = root || UI.getElements().root || document.getElementById('local-ai-course-assistant');
+        let options = {};
+        try {
+            options = root && root.dataset && root.dataset.llmOptions ? JSON.parse(root.dataset.llmOptions) : {};
+        } catch (e) {
+            options = {};
+        }
+        return {
+            enabled: !!(options && options.enabled),
+            providers: Array.isArray(options && options.providers) ? options.providers : [],
+            defaultProvider: (options && options.defaultProvider) || '',
+            defaultModel: (options && options.defaultModel) || '',
+        };
+    };
+
+    /**
+     * Persist the user's preferred LLM provider/model pair.
+     *
+     * @param {string} provider
+     * @param {string} model
+     */
+    const saveLlmSelection = function(provider, model) {
+        try {
+            if (provider) {
+                localStorage.setItem(LLM_PROVIDER_KEY, provider);
+            } else {
+                localStorage.removeItem(LLM_PROVIDER_KEY);
+            }
+            if (model) {
+                localStorage.setItem(LLM_MODEL_KEY, model);
+            } else {
+                localStorage.removeItem(LLM_MODEL_KEY);
+            }
+        } catch (e) { /**/ }
+    };
+
+    /**
+     * Resolve the current active provider/model pair for the student model switcher.
+     *
+     * @param {HTMLElement|null} root
+     * @returns {{enabled:boolean,provider:string,model:string,options:Object}}
+     */
+    const getResolvedLlmSelection = function(root) {
+        const options = getLlmOptions(root);
+        const providers = options.providers || [];
+        if (!options.enabled || !providers.length) {
+            return {
+                enabled: false,
+                provider: '',
+                model: '',
+                options: options,
+            };
+        }
+
+        let storedProvider = '';
+        let storedModel = '';
+        try {
+            storedProvider = localStorage.getItem(LLM_PROVIDER_KEY) || '';
+            storedModel = localStorage.getItem(LLM_MODEL_KEY) || '';
+        } catch (e) { /**/ }
+
+        let providerConfig = providers.find(function(item) {
+            return item.id === storedProvider;
+        }) || providers.find(function(item) {
+            return item.id === options.defaultProvider;
+        }) || providers[0];
+
+        if (!providerConfig) {
+            return {
+                enabled: false,
+                provider: '',
+                model: '',
+                options: options,
+            };
+        }
+
+        let model = storedModel;
+        if (!model || !Array.isArray(providerConfig.models) || providerConfig.models.indexOf(model) === -1) {
+            if (providerConfig.id === options.defaultProvider &&
+                    Array.isArray(providerConfig.models) &&
+                    providerConfig.models.indexOf(options.defaultModel) !== -1) {
+                model = options.defaultModel;
+            } else {
+                model = (providerConfig.models && providerConfig.models[0]) || '';
+            }
+        }
+
+        if (storedProvider !== providerConfig.id || storedModel !== model) {
+            saveLlmSelection(providerConfig.id, model);
+        }
+
+        return {
+            enabled: true,
+            provider: providerConfig.id,
+            model: model,
+            options: options,
+        };
     };
 
     /**
@@ -1468,6 +1578,7 @@ define([
         let quizHistory = [];
         try { studySessions = JSON.parse(localStorage.getItem('aica_study_sessions_' + courseId) || '[]'); } catch (e) { /**/ }
         try { quizHistory = JSON.parse(localStorage.getItem('aica_quiz_history_' + courseId) || '[]'); } catch (e) { /**/ }
+        const llmSelection = getResolvedLlmSelection(root);
 
         // Fetch reminder preferences, then show panel.
         var reminderEnabled = false;
@@ -1487,6 +1598,10 @@ define([
                     emailRemindersEnabled: root.dataset.emailreminders === '1',
                     reminderEnabled: reminderEnabled,
                     reminderFrequency: reminderFrequency,
+                    modelSwitchEnabled: llmSelection.enabled,
+                    providerOptions: llmSelection.options.providers || [],
+                    currentProvider: llmSelection.provider,
+                    currentModel: llmSelection.model,
                 },
                 {
                     onLangSelect: function(code, name) {
@@ -1507,6 +1622,9 @@ define([
                     },
                     onVoiceSelect: function(voice) {
                         localStorage.setItem('aica_tts_voice', voice);
+                    },
+                    onLlmSelect: function(provider, model) {
+                        saveLlmSelection(provider, model);
                     },
                     onClearProgress: function() {
                         try {
@@ -2572,7 +2690,15 @@ define([
 
                 // Pass cmid when "Current page" is selected (topic = '') on a module page.
                 const cmidForQuiz = (!topic && currentPageId > 0) ? currentPageId : 0;
-                Repo.generateQuiz(courseId, count, topic, cmidForQuiz).then(function(result) {
+                const llmSelection = getResolvedLlmSelection(UI.getElements().root);
+                Repo.generateQuiz(
+                    courseId,
+                    count,
+                    topic,
+                    cmidForQuiz,
+                    llmSelection.enabled ? llmSelection.provider : '',
+                    llmSelection.enabled ? llmSelection.model : ''
+                ).then(function(result) {
                     UI.showTyping(false);
                     if (!result.success) {
                         quizModeActive = false;
@@ -3513,6 +3639,11 @@ define([
         var completionPct = rootEl ? (parseInt(rootEl.dataset.completionpct, 10) || 0) : 0;
         if (completionPct > 0) {
             postData.completion = completionPct;
+        }
+        var llmSelection = getResolvedLlmSelection(rootEl);
+        if (llmSelection.enabled && llmSelection.provider && llmSelection.model) {
+            postData.provider = llmSelection.provider;
+            postData.model = llmSelection.model;
         }
         if (contextDebugEnabled) {
             postData.clienturl = window.location.href;

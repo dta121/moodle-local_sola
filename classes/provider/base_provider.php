@@ -41,20 +41,19 @@ abstract class base_provider implements provider_interface {
     protected float $temperature;
 
     /**
-     * Constructor. Reads plugin config, with optional per-course overrides.
+     * Constructor. Reads provider config, with optional runtime overrides.
      *
-     * @param array $overrides Optional config overrides from course_config_manager::get_effective_config().
-     *                         Blank/absent keys fall through to the global plugin config.
+     * @param array $overrides Optional config overrides.
      */
     public function __construct(array $overrides = []) {
         $rawkey = !empty($overrides['apikey'])
             ? $overrides['apikey']
             : (get_config('local_ai_course_assistant', 'apikey') ?: '');
         // Strip any descriptive label accidentally saved before the key
-        // e.g. "OpenAI API Key sk-proj-..." → "sk-proj-..."
+        // e.g. "OpenAI API Key sk-proj-..." -> "sk-proj-...".
         $rawkey = trim($rawkey);
         $parts = preg_split('/\s+/', $rawkey);
-        $this->apikey = count($parts) > 1 ? trim(end($parts)) : $rawkey;
+        $this->apikey = count($parts) > 1 ? trim((string)end($parts)) : $rawkey;
 
         $adminmodel = get_config('local_ai_course_assistant', 'model');
         $this->model = !empty($overrides['model'])
@@ -64,13 +63,13 @@ abstract class base_provider implements provider_interface {
                 : (\local_ai_course_assistant\remote_config_manager::get_value('model_default') ?: $this->get_default_model()));
 
         $this->temperature = isset($overrides['temperature']) && $overrides['temperature'] !== ''
-            ? (float) $overrides['temperature']
-            : (float) (get_config('local_ai_course_assistant', 'temperature') ?: 0.7);
+            ? (float)$overrides['temperature']
+            : (float)(get_config('local_ai_course_assistant', 'temperature') ?: 0.7);
 
         $configurl = !empty($overrides['apibaseurl'])
             ? $overrides['apibaseurl']
             : get_config('local_ai_course_assistant', 'apibaseurl');
-        $this->baseurl = !empty($configurl) ? rtrim($configurl, '/') : $this->get_default_base_url();
+        $this->baseurl = !empty($configurl) ? rtrim((string)$configurl, '/') : $this->get_default_base_url();
     }
 
     /**
@@ -132,7 +131,7 @@ abstract class base_provider implements provider_interface {
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_TIMEOUT => 300,
-            CURLOPT_WRITEFUNCTION => function ($ch, $data) use ($writecallback, &$responseexcerpt) {
+            CURLOPT_WRITEFUNCTION => function($ch, $data) use ($writecallback, &$responseexcerpt) {
                 if (strlen($responseexcerpt) < self::STREAM_ERROR_EXCERPT_LIMIT) {
                     $remaining = self::STREAM_ERROR_EXCERPT_LIMIT - strlen($responseexcerpt);
                     $responseexcerpt .= substr($data, 0, $remaining);
@@ -208,7 +207,7 @@ abstract class base_provider implements provider_interface {
 
         $data = json_decode($response, true);
         if (is_array($data)) {
-            $message = trim((string) ($data['error']['message'] ?? $data['message'] ?? ''));
+            $message = trim((string)($data['error']['message'] ?? $data['message'] ?? ''));
             if ($message !== '') {
                 return $message;
             }
@@ -230,33 +229,99 @@ abstract class base_provider implements provider_interface {
     }
 
     /**
-     * Factory method to create a provider from plugin config, with optional per-course overrides.
+     * Resolve the runtime provider config for a course request.
      *
-     * @param int $courseid Course ID to look up per-course overrides (0 = use global only).
-     * @return provider_interface
-     * @throws \moodle_exception If provider is not configured.
+     * @param int $courseid
+     * @param string|null $requestedprovider
+     * @param string|null $requestedmodel
+     * @return array
      */
-    public static function create_from_config(int $courseid = 0): provider_interface {
-        $overrides = \local_ai_course_assistant\course_config_manager::get_effective_config($courseid);
-        $provider = !empty($overrides['provider'])
-            ? $overrides['provider']
-            : (get_config('local_ai_course_assistant', 'provider') ?: '');
+    public static function resolve_runtime_config(
+        int $courseid = 0,
+        ?string $requestedprovider = null,
+        ?string $requestedmodel = null
+    ): array {
+        $courseconfig = \local_ai_course_assistant\course_config_manager::get_effective_config($courseid);
+        $selection = \local_ai_course_assistant\llm_provider_manager::resolve_selection(
+            $requestedprovider,
+            $requestedmodel
+        );
+
+        return [
+            'provider' => $selection['provider'],
+            'apikey' => $selection['apikey'],
+            'model' => $selection['model'],
+            'apibaseurl' => $selection['apibaseurl'],
+            'temperature' => $courseconfig['temperature'] ?? (get_config('local_ai_course_assistant', 'temperature') ?: '0.7'),
+            'default_provider' => $selection['default_provider'],
+            'default_model' => $selection['default_model'],
+            'using_fallback' => $selection['using_fallback'],
+            'fallback_reason' => $selection['fallback_reason'],
+        ];
+    }
+
+    /**
+     * Return the runtime config for the system default provider/model, when different.
+     *
+     * @param int $courseid
+     * @param array $runtimeconfig
+     * @return array|null
+     */
+    public static function get_fallback_runtime_config(int $courseid, array $runtimeconfig): ?array {
+        $defaultprovider = trim((string)($runtimeconfig['default_provider'] ?? ''));
+        $defaultmodel = trim((string)($runtimeconfig['default_model'] ?? ''));
+        $provider = trim((string)($runtimeconfig['provider'] ?? ''));
+        $model = trim((string)($runtimeconfig['model'] ?? ''));
+
+        if ($defaultprovider === '' || ($provider === $defaultprovider && $model === $defaultmodel)) {
+            return null;
+        }
+
+        return self::resolve_runtime_config($courseid, $defaultprovider, $defaultmodel);
+    }
+
+    /**
+     * Create a provider instance from a resolved runtime config array.
+     *
+     * @param array $runtimeconfig
+     * @return provider_interface
+     */
+    public static function create_from_runtime_config(array $runtimeconfig): provider_interface {
+        $provider = trim((string)($runtimeconfig['provider'] ?? ''));
 
         switch ($provider) {
             case 'claude':
-                return new claude_provider($overrides);
+                return new claude_provider($runtimeconfig);
             case 'openai':
-                return new openai_provider($overrides);
+                return new openai_provider($runtimeconfig);
             case 'ollama':
-                return new ollama_provider($overrides);
+                return new ollama_provider($runtimeconfig);
             case 'minimax':
-                return new minimax_provider($overrides);
+                return new minimax_provider($runtimeconfig);
             case 'deepseek':
-                return new deepseek_provider($overrides);
+                return new deepseek_provider($runtimeconfig);
             case 'custom':
-                return new custom_provider($overrides);
+                return new custom_provider($runtimeconfig);
             default:
                 throw new \moodle_exception('chat:error_notconfigured', 'local_ai_course_assistant');
         }
+    }
+
+    /**
+     * Factory method to create a provider from plugin config, with optional user selection.
+     *
+     * @param int $courseid Course ID to look up per-course overrides (0 = use global only).
+     * @param string|null $requestedprovider
+     * @param string|null $requestedmodel
+     * @return provider_interface
+     * @throws \moodle_exception If provider is not configured.
+     */
+    public static function create_from_config(
+        int $courseid = 0,
+        ?string $requestedprovider = null,
+        ?string $requestedmodel = null
+    ): provider_interface {
+        $runtimeconfig = self::resolve_runtime_config($courseid, $requestedprovider, $requestedmodel);
+        return self::create_from_runtime_config($runtimeconfig);
     }
 }

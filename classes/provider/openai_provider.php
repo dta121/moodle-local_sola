@@ -30,6 +30,6 @@ class openai_provider extends openai_compatible_provider {
     }
 
     protected function get_default_base_url(): string {
-        return 'https://api.openai.com';
+        return 'https://api.openai.com/v1';
     }
 }

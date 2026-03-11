@@ -66,7 +66,7 @@ abstract class openai_compatible_provider extends base_provider {
      * @return string
      */
     protected function get_endpoint(): string {
-        return '/v1/chat/completions';
+        return '/chat/completions';
     }
 
     /**

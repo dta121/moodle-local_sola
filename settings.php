@@ -26,6 +26,94 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
     $helper = '\\local_ai_course_assistant\\admin_settings_helper';
+    $llmmanagementsection = 'local_ai_course_assistant_llm_provider_management';
+    $llmmanagementurl = new moodle_url('/admin/settings.php', ['section' => $llmmanagementsection]);
+    $llmproviders = \local_ai_course_assistant\llm_provider_manager::get_catalog();
+    $llmprovideroptions = \local_ai_course_assistant\llm_provider_manager::get_provider_options();
+    $llmmodeloptions = \local_ai_course_assistant\llm_provider_manager::get_model_options();
+    try {
+        $activedefaultllm = \local_ai_course_assistant\llm_provider_manager::get_active_default_selection();
+        $defaultllmprovider = $activedefaultllm['provider'];
+        $defaultllmmodel = $activedefaultllm['model'];
+    } catch (\Throwable $e) {
+        $defaultllmprovider = \local_ai_course_assistant\llm_provider_manager::get_system_default_provider();
+        $defaultllmmodel = array_key_exists('', $llmmodeloptions)
+            ? ''
+            : \local_ai_course_assistant\llm_provider_manager::get_system_default_model($defaultllmprovider);
+    }
+
+    $llmprovidersettings = new admin_settingpage(
+        $llmmanagementsection,
+        get_string('settings:llm_management_title', 'local_ai_course_assistant'),
+        'moodle/site:config'
+    );
+
+    $llmprovidersettings->add(new admin_setting_heading(
+        'local_ai_course_assistant/llm_provider_management_heading',
+        get_string('settings:llm_management_heading', 'local_ai_course_assistant'),
+        get_string('settings:llm_management_desc', 'local_ai_course_assistant')
+    ));
+
+    $llmprovidersettings->add(new admin_setting_configselect(
+        'local_ai_course_assistant/llm_default_provider',
+        get_string('settings:llm_default_provider', 'local_ai_course_assistant'),
+        get_string('settings:llm_default_provider_desc', 'local_ai_course_assistant'),
+        $defaultllmprovider,
+        $llmprovideroptions
+    ));
+
+    $llmprovidersettings->add(new admin_setting_configselect(
+        'local_ai_course_assistant/llm_default_model',
+        get_string('settings:llm_default_model', 'local_ai_course_assistant'),
+        get_string('settings:llm_default_model_desc', 'local_ai_course_assistant'),
+        $defaultllmmodel,
+        $llmmodeloptions
+    ));
+
+    foreach ($llmproviders as $providerid => $providerinfo) {
+        $baseurlnote = $providerinfo['default_baseurl'] !== ''
+            ? s($providerinfo['default_baseurl'])
+            : get_string('settings:llm_provider_baseurl_blank', 'local_ai_course_assistant');
+        $apikeynote = !empty($providerinfo['requires_apikey'])
+            ? get_string('settings:llm_provider_requires_apikey', 'local_ai_course_assistant')
+            : get_string('settings:llm_provider_optional_apikey', 'local_ai_course_assistant');
+
+        $llmprovidersettings->add(new admin_setting_heading(
+            'local_ai_course_assistant/llm_provider_heading_' . $providerid,
+            $providerinfo['label'],
+            get_string('settings:llm_provider_heading_desc', 'local_ai_course_assistant',
+                (object)[
+                    'baseurl' => $baseurlnote,
+                    'apikey' => $apikeynote,
+                ]
+            )
+        ));
+
+        $llmprovidersettings->add(new admin_setting_configpasswordunmask(
+            'local_ai_course_assistant/llm_' . $providerid . '_apikey',
+            get_string('settings:apikey', 'local_ai_course_assistant'),
+            get_string('settings:llm_provider_apikey_desc', 'local_ai_course_assistant'),
+            ''
+        ));
+
+        $llmprovidersettings->add(new admin_setting_configtext(
+            'local_ai_course_assistant/llm_' . $providerid . '_baseurl',
+            get_string('settings:apibaseurl', 'local_ai_course_assistant'),
+            get_string('settings:llm_provider_baseurl_desc', 'local_ai_course_assistant'),
+            $providerinfo['default_baseurl'],
+            PARAM_RAW_TRIMMED
+        ));
+
+        $llmprovidersettings->add(new admin_setting_configtext(
+            'local_ai_course_assistant/llm_' . $providerid . '_models',
+            get_string('settings:llm_provider_models', 'local_ai_course_assistant'),
+            get_string('settings:llm_provider_models_desc', 'local_ai_course_assistant'),
+            implode(', ', $providerinfo['default_models']),
+            PARAM_RAW_TRIMMED
+        ));
+    }
+
+    $ADMIN->add('localplugins', $llmprovidersettings);
 
     $helper::add_root_category($ADMIN);
 
@@ -35,15 +123,6 @@ if ($hassiteconfig) {
     $updateadminurl = new moodle_url('/local/ai_course_assistant/update_admin.php');
     $integrityadminurl = new moodle_url('/local/ai_course_assistant/integrity_admin.php');
     $whatsapptesturl = new moodle_url('/local/ai_course_assistant/whatsapp_test.php');
-
-    $providers = [
-        'claude' => get_string('settings:provider_claude', 'local_ai_course_assistant'),
-        'openai' => get_string('settings:provider_openai', 'local_ai_course_assistant'),
-        'deepseek' => get_string('settings:provider_deepseek', 'local_ai_course_assistant'),
-        'ollama' => get_string('settings:provider_ollama', 'local_ai_course_assistant'),
-        'minimax' => get_string('settings:provider_minimax', 'local_ai_course_assistant'),
-        'custom' => get_string('settings:provider_custom', 'local_ai_course_assistant'),
-    ];
 
     $displaymodes = [
         'widget' => get_string('settings:display_mode_widget', 'local_ai_course_assistant'),
@@ -90,36 +169,24 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading(
         'local_ai_course_assistant/provider_heading',
         'AI Provider & Conversation',
-        'Configure the model, system prompt, and core conversation behavior.'
+        get_string('settings:provider_heading_desc_main', 'local_ai_course_assistant')
     ));
 
-    $settings->add(new admin_setting_configselect(
-        'local_ai_course_assistant/provider',
-        get_string('settings:provider', 'local_ai_course_assistant'),
-        get_string('settings:provider_desc', 'local_ai_course_assistant'),
-        'openai',
-        $providers
+    $settings->add(new admin_setting_description(
+        'local_ai_course_assistant/llm_management_link',
+        get_string('settings:llm_management_title', 'local_ai_course_assistant'),
+        html_writer::link(
+            $llmmanagementurl,
+            get_string('settings:llm_management_button', 'local_ai_course_assistant'),
+            ['class' => 'btn btn-secondary btn-sm']
+        )
     ));
 
-    $settings->add(new admin_setting_configpasswordunmask(
-        'local_ai_course_assistant/apikey',
-        get_string('settings:apikey', 'local_ai_course_assistant'),
-        get_string('settings:apikey_desc', 'local_ai_course_assistant'),
-        ''
-    ));
-
-    $settings->add(new admin_setting_configtext(
-        'local_ai_course_assistant/model',
-        get_string('settings:model', 'local_ai_course_assistant'),
-        get_string('settings:model_desc', 'local_ai_course_assistant'),
-        ''
-    ));
-
-    $settings->add(new admin_setting_configtext(
-        'local_ai_course_assistant/apibaseurl',
-        get_string('settings:apibaseurl', 'local_ai_course_assistant'),
-        get_string('settings:apibaseurl_desc', 'local_ai_course_assistant'),
-        ''
+    $settings->add(new admin_setting_configcheckbox(
+        'local_ai_course_assistant/allow_student_model_switching',
+        get_string('settings:allow_student_model_switching', 'local_ai_course_assistant'),
+        get_string('settings:allow_student_model_switching_desc', 'local_ai_course_assistant'),
+        0
     ));
 
     $settings->add(new admin_setting_configtextarea(

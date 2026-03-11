@@ -32,6 +32,6 @@ class deepseek_provider extends openai_compatible_provider {
     }
 
     protected function get_default_base_url(): string {
-        return 'https://api.deepseek.com';
+        return 'https://api.deepseek.com/v1';
     }
 }

@@ -42,16 +42,9 @@ if ($courseid > 0) {
 }
 require_capability('local/ai_course_assistant:use', $context);
 
-// TTS requires any OpenAI API key — realtime key takes priority, then main key if provider=openai.
-// Does NOT require realtime to be enabled or OpenAI to be the chat provider.
-$apikey = get_config('local_ai_course_assistant', 'realtime_apikey');
-if (empty($apikey)) {
-    $provider   = get_config('local_ai_course_assistant', 'provider');
-    $mainapikey = get_config('local_ai_course_assistant', 'apikey');
-    if ($provider === 'openai' && !empty($mainapikey)) {
-        $apikey = $mainapikey;
-    }
-}
+// TTS requires any OpenAI API key — realtime key takes priority, then the configured OpenAI provider key.
+// Does NOT require realtime to be enabled or OpenAI to be the active chat provider.
+$apikey = \local_ai_course_assistant\llm_provider_manager::get_openai_voice_key();
 if (empty($apikey)) {
     http_response_code(503);
     echo json_encode(['error' => 'No OpenAI API key configured for TTS.']);

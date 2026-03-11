@@ -178,17 +178,23 @@ class integrity_checker {
      * @return array
      */
     private static function check_api_configuration(): array {
-        $provider = (string)(get_config('local_ai_course_assistant', 'provider') ?: 'openai');
-        $apikey = trim((string)get_config('local_ai_course_assistant', 'apikey'));
         $issues = [];
+        $warnings = [];
+        $activeproviders = llm_provider_manager::get_active_provider_configs();
 
-        if ($provider !== 'ollama' && $apikey === '') {
-            $issues[] = 'Main API key is missing for provider "' . $provider . '".';
+        if (empty($activeproviders)) {
+            $issues[] = 'No active LLM providers are configured in LLM Provider Management.';
+        } else {
+            $systemdefault = llm_provider_manager::get_system_default_provider();
+            if (!isset($activeproviders[$systemdefault])) {
+                $fallbackprovider = array_key_first($activeproviders);
+                $warnings[] = 'The configured system default provider "' . $systemdefault
+                    . '" is not currently active. SOLA will fall back to "' . $fallbackprovider . '".';
+            }
         }
 
         if (get_config('local_ai_course_assistant', 'realtime_enabled')) {
-            $realtimekey = trim((string)get_config('local_ai_course_assistant', 'realtime_apikey'));
-            if ($realtimekey === '' && $provider !== 'openai') {
+            if (llm_provider_manager::get_openai_voice_key() === '') {
                 $issues[] = 'Voice Mode is enabled but no dedicated OpenAI voice/TTS key is configured.';
             }
         }
@@ -205,8 +211,12 @@ class integrity_checker {
             return self::make_check('api_keys', 'API configuration', 'fail', implode(' ', $issues));
         }
 
+        if (!empty($warnings)) {
+            return self::make_check('api_keys', 'API configuration', 'warn', implode(' ', $warnings));
+        }
+
         return self::make_check('api_keys', 'API configuration', 'pass',
-            'Provider "' . $provider . '" and optional voice/RAG keys are configured correctly.');
+            'Active LLM providers and optional voice/RAG keys are configured correctly.');
     }
 
     /**

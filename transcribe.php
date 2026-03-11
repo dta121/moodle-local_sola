@@ -50,14 +50,7 @@ if (empty($_FILES['audio']['tmp_name']) || !is_uploaded_file($_FILES['audio']['t
 }
 
 // Resolve API key — same priority as tts.php.
-$apikey = get_config('local_ai_course_assistant', 'realtime_apikey');
-if (empty($apikey)) {
-    $provider   = get_config('local_ai_course_assistant', 'provider');
-    $mainapikey = get_config('local_ai_course_assistant', 'apikey');
-    if ($provider === 'openai' && !empty($mainapikey)) {
-        $apikey = $mainapikey;
-    }
-}
+$apikey = \local_ai_course_assistant\llm_provider_manager::get_openai_voice_key();
 if (empty($apikey)) {
     http_response_code(503);
     echo json_encode(['error' => 'No OpenAI API key configured for transcription.']);

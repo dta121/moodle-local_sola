@@ -44,6 +44,8 @@ class send_message extends external_api {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
             'message' => new external_value(PARAM_RAW, 'User message'),
+            'provider' => new external_value(PARAM_ALPHANUMEXT, 'Requested provider ID', VALUE_DEFAULT, ''),
+            'model' => new external_value(PARAM_RAW_TRIMMED, 'Requested model name', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -52,14 +54,18 @@ class send_message extends external_api {
      *
      * @param int $courseid
      * @param string $message
+     * @param string $provider
+     * @param string $model
      * @return array
      */
-    public static function execute(int $courseid, string $message): array {
+    public static function execute(int $courseid, string $message, string $provider = '', string $model = ''): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid,
             'message' => $message,
+            'provider' => $provider,
+            'model' => $model,
         ]);
 
         $context = \context_course::instance($params['courseid']);
@@ -97,12 +103,45 @@ class send_message extends external_api {
             $responseoptions['max_tokens'] = $maxtokens;
         }
 
-        // Get AI response.
-        $provider = base_provider::create_from_config();
-        $response = $provider->chat_completion($systemprompt, $history, $responseoptions);
+        // Get AI response, retrying once on the system default provider/model if a custom selection fails.
+        $runtimeconfig = base_provider::resolve_runtime_config(
+            $params['courseid'],
+            $params['provider'],
+            $params['model']
+        );
+        $usedruntime = $runtimeconfig;
+
+        try {
+            $providerinstance = base_provider::create_from_runtime_config($runtimeconfig);
+            $response = $providerinstance->chat_completion($systemprompt, $history, $responseoptions);
+        } catch (\Throwable $e) {
+            $fallbackconfig = base_provider::get_fallback_runtime_config($params['courseid'], $runtimeconfig);
+            if ($fallbackconfig === null) {
+                throw $e;
+            }
+
+            debugging(
+                'LLM selection failed for send_message; retrying with the system default provider.',
+                DEBUG_DEVELOPER
+            );
+            $providerinstance = base_provider::create_from_runtime_config($fallbackconfig);
+            $response = $providerinstance->chat_completion($systemprompt, $history, $responseoptions);
+            $usedruntime = $fallbackconfig;
+        }
 
         // Save assistant response.
-        conversation_manager::add_message($conv->id, $userid, $params['courseid'], 'assistant', $response);
+        conversation_manager::add_message(
+            $conv->id,
+            $userid,
+            $params['courseid'],
+            'assistant',
+            $response,
+            0,
+            $usedruntime['provider'],
+            null,
+            null,
+            $usedruntime['model']
+        );
 
         return [
             'response' => $response,
