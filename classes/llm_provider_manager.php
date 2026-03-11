@@ -40,6 +40,12 @@ class llm_provider_manager {
                 'default_models' => ['gpt-4o-mini'],
                 'requires_apikey' => true,
             ],
+            'gemini' => [
+                'label' => get_string('settings:provider_gemini', 'local_ai_course_assistant'),
+                'default_baseurl' => 'https://generativelanguage.googleapis.com/v1beta/openai',
+                'default_models' => ['gemini-2.5-flash'],
+                'requires_apikey' => true,
+            ],
             'claude' => [
                 'label' => get_string('settings:provider_claude', 'local_ai_course_assistant'),
                 'default_baseurl' => 'https://api.anthropic.com/v1',
@@ -118,6 +124,20 @@ class llm_provider_manager {
         $baseurl = rtrim(trim($baseurl), '/');
         if ($baseurl === '') {
             return '';
+        }
+
+        if ($provider === 'gemini') {
+            $baseurl = preg_replace('#/chat/completions$#i', '', $baseurl);
+
+            if (preg_match('#/v[0-9]+(?:beta)?/openai$#i', $baseurl)) {
+                return $baseurl;
+            }
+
+            if (preg_match('#/v[0-9]+(?:beta)?$#i', $baseurl)) {
+                return $baseurl . '/openai';
+            }
+
+            return $baseurl . '/v1beta/openai';
         }
 
         if (in_array($provider, ['openai', 'claude', 'deepseek', 'minimax'], true)) {

@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Umhlinzeki we-AI';
 $string['settings:provider_desc'] = 'Khetha umhlinzeki we-AI ozosetshenziselwa ukuphela kwezingxoxo.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Wendawo)';
 $string['settings:provider_minimax'] = 'MiniMax';

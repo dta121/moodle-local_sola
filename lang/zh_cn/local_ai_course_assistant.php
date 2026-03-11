@@ -54,6 +54,7 @@ $string['settings:provider'] = 'AI 提供商';
 $string['settings:provider_desc'] = '选择用于聊天补全的 AI 提供商。';
 $string['settings:provider_claude'] = 'Claude（Anthropic）';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama（本地）';
 $string['settings:provider_minimax'] = 'MiniMax';

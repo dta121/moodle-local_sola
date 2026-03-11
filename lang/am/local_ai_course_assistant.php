@@ -54,6 +54,7 @@ $string['settings:provider'] = 'የAI አቅራቢ';
 $string['settings:provider_desc'] = 'ለቻት ማጠናቀቂያዎች ጥቅም ላይ የሚውለውን AI አቅራቢ ይምረጡ።';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (አካባቢያዊ)';
 $string['settings:provider_minimax'] = 'MiniMax';

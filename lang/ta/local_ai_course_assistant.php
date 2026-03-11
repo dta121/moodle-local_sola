@@ -54,6 +54,7 @@ $string['settings:provider'] = 'AI வழங்குநர்';
 $string['settings:provider_desc'] = 'அரட்டை நிறைவுகளுக்கு பயன்படுத்த AI வழங்குநரை தேர்ந்தெடு.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (உள்ளூர்)';
 $string['settings:provider_minimax'] = 'MiniMax';

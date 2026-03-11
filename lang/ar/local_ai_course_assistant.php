@@ -49,6 +49,7 @@ $string['settings:provider'] = 'مزوّد الذكاء الاصطناعي';
 $string['settings:provider_desc'] = 'اختر مزوّد الذكاء الاصطناعي المستخدم لإكمال المحادثات.';
 $string['settings:provider_claude'] = 'كلود (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (محلي)';
 $string['settings:provider_minimax'] = 'MiniMax';

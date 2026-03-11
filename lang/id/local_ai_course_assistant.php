@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Penyedia AI';
 $string['settings:provider_desc'] = 'Pilih penyedia AI untuk penyelesaian chat.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Lokal)';
 $string['settings:provider_minimax'] = 'MiniMax';

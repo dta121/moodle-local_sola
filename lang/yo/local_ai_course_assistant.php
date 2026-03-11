@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Olùpèsè AI';
 $string['settings:provider_desc'] = 'Yan olùpèsè AI tí a ó lò fún ìparí ìjíròrò.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Àdúgbò)';
 $string['settings:provider_minimax'] = 'MiniMax';

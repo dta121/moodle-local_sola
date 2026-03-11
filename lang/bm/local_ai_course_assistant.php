@@ -55,6 +55,7 @@ $string['settings:provider'] = 'AI Bɛɛlɛ Dɔnbaga';
 $string['settings:provider_desc'] = 'AI bɛɛlɛ dɔnbaga sugandi kumakanbali dafali kama.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Fan-fɛn)';
 $string['settings:provider_minimax'] = 'MiniMax';

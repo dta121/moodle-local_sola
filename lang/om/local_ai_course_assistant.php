@@ -52,6 +52,7 @@ $string['settings:provider'] = 'Dhiyeessaa AI';
 $string['settings:provider_desc'] = 'Dhiyeessaa AI guutuu haasawaaf fayyadamuu filii.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Naannoo)';
 $string['settings:provider_minimax'] = 'MiniMax';

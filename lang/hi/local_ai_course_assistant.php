@@ -54,6 +54,7 @@ $string['settings:provider'] = 'AI प्रदाता';
 $string['settings:provider_desc'] = 'चैट पूर्णता के लिए उपयोग करने हेतु AI प्रदाता चुनें।';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (स्थानीय)';
 $string['settings:provider_minimax'] = 'MiniMax';

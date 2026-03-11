@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Proveedor de IA';
 $string['settings:provider_desc'] = 'Seleccionar el proveedor de IA que se usará para las respuestas del chat.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Local)';
 $string['settings:provider_minimax'] = 'MiniMax';

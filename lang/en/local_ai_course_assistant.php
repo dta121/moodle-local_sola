@@ -80,6 +80,7 @@ $string['settings:provider'] = 'AI Provider';
 $string['settings:provider_desc'] = 'Select the AI provider to use for chat completions.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Local)';
 $string['settings:provider_minimax'] = 'MiniMax';

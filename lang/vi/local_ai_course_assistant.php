@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Nhà cung cấp AI';
 $string['settings:provider_desc'] = 'Chọn nhà cung cấp AI để sử dụng cho các phiên chat.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Cục bộ)';
 $string['settings:provider_minimax'] = 'MiniMax';

@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Mai Bada Sabis na AI';
 $string['settings:provider_desc'] = 'Zaɓi mai bada sabis na AI don amfani da shi wajen kammala tattaunawa.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Gida)';
 $string['settings:provider_minimax'] = 'MiniMax';

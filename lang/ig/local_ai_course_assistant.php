@@ -52,6 +52,7 @@ $string['settings:provider'] = 'Onye Nnye AI';
 $string['settings:provider_desc'] = 'Họrọ onye nnye AI iji maka ịmecha mkparịta ụka.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Mpaụzọ)';
 $string['settings:provider_minimax'] = 'MiniMax';

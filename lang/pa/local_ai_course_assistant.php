@@ -54,6 +54,7 @@ $string['settings:provider'] = 'AI ਪ੍ਰਦਾਤਾ';
 $string['settings:provider_desc'] = 'ਚੈਟ ਪੂਰਤੀ ਲਈ ਵਰਤਣ ਵਾਲਾ AI ਪ੍ਰਦਾਤਾ ਚੁਣੋ।';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (ਸਥਾਨਕ)';
 $string['settings:provider_minimax'] = 'MiniMax';

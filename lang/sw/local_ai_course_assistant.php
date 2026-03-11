@@ -54,6 +54,7 @@ $string['settings:provider'] = 'Mtoa Huduma wa AI';
 $string['settings:provider_desc'] = 'Chagua mtoa huduma wa AI wa kutumia kwa ukamilishaji wa mazungumzo.';
 $string['settings:provider_claude'] = 'Claude (Anthropic)';
 $string['settings:provider_openai'] = 'OpenAI';
+$string['settings:provider_gemini'] = 'Google Gemini';
 $string['settings:provider_deepseek'] = 'DeepSeek';
 $string['settings:provider_ollama'] = 'Ollama (Ndani ya Mtandao)';
 $string['settings:provider_minimax'] = 'MiniMax';

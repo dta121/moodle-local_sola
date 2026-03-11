@@ -292,6 +292,8 @@ abstract class base_provider implements provider_interface {
         switch ($provider) {
             case 'claude':
                 return new claude_provider($runtimeconfig);
+            case 'gemini':
+                return new gemini_provider($runtimeconfig);
             case 'openai':
                 return new openai_provider($runtimeconfig);
             case 'ollama':
